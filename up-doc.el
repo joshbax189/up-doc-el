@@ -137,6 +137,48 @@ suggestion."
     (when bad-hooks
       (format "hooks for symbols %s should use defuns instead of lambdas" bad-hooks))))
 
+(up-doc-rule add-hook-instead-of-hook
+    "Suggest using :hook instead of add-hook."
+  (let (places)
+    (dolist (place up-doc-code-like)
+      (when (seq-some (-lambda ((fn-head)) (eq fn-head 'add-hook))
+                      (plist-get package place))
+        (push place places)))
+    (when places
+      (format "Consider using :hook instead of add-hook within %s" places))))
+
+(up-doc-rule custom-replace-set-default
+    "Suggest using :custom instead of setq-default or set-default."
+  (let (places)
+    (dolist (place up-doc-code-like)
+      (when (seq-some (-lambda ((fn-head)) (or (eq fn-head 'setq-default) (eq fn-head 'set-default)))
+                      (plist-get package place))
+        (push place places)))
+    (when places
+      (format "Consider using :custom instead of setq-default or set-default within %s" places))))
+
+(up-doc-rule custom-replace-setq
+    "Suggest using :custom instead of setq."
+  (let (places)
+    (dolist (place up-doc-code-like)
+      ;; TODO also report the variable
+      (when (seq-some (-lambda ((fn-head v)) (and (eq fn-head 'setq)
+                                                  (custom-variable-p v)))
+                      (plist-get package place))
+        (push place places)))
+    (when places
+      (format "Consider using :custom instead of setq for custom variables within %s" places))))
+
+(up-doc-rule custom-replace-setopt
+    "Suggest using :custom instead of setf."
+  (let (places)
+    (dolist (place up-doc-code-like)
+      (when (seq-some (-lambda ((fn-head)) (eq fn-head 'setopt))
+                      (plist-get package place))
+        (push place places)))
+    (when places
+      (format "Consider using :custom instead of setopt within %s" places))))
+
 (defun up-doc-lint (form)
   "Lint a use-package FORM for common issues."
   (let ((package (up-doc--form-to-plist form))
