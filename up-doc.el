@@ -45,7 +45,8 @@
   "Defined linter rules.")
 
 (defun up-doc--form-to-plist (form)
-  "Convert a use-package FORM to a plist indexed by `use-package-keywords'."
+  "Convert a use-package FORM to a plist indexed by `use-package-keywords'.
+The package name is available using the special keyword :package."
   (let* ((package (nth 1 form))
          (body (cddr form))
          (plist (list :package package))
@@ -81,7 +82,11 @@
   (-uniq (map-keys up-doc-rules)))
 
 (defmacro up-doc-rule (name docstring &rest body)
-  "Declare a new linter rule."
+  "Declare a new linter rule.
+Within BODY the symbol `package' is bound to a plist containing all of the
+package's use-package keywords, as per `up-doc--form-to-plist'.
+BODY should return either nil or a string which will be shown as a linter
+suggestion."
   (declare (doc-string 2) (indent 2))
   `(push '(,name . (:doc ,docstring :function (lambda (package) ,@body)))
          up-doc-rules))
