@@ -112,9 +112,8 @@
                            (x-hook . fn))))))
 
 (ert-deftest up-doc-lint/test-5 ()
-  "Tests linting."
+  "Should suggest adding :hook."
   (should (up-doc-lint '(use-package fren
-                          :straight nil
                           :init
                           (add-hook fren-hook (lambda () (message "hi")))))))
 

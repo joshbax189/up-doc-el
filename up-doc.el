@@ -193,13 +193,19 @@ suggestion."
 
 (up-doc-rule add-hook-instead-of-hook
     "Suggest using :hook instead of add-hook."
-  (let (places)
+  (let (warnings)
     (dolist (place up-doc-code-like)
-      (when (seq-some (-lambda ((fn-head)) (eq fn-head 'add-hook))
-                      (plist-get package place))
-        (push place places)))
-    (when places
-      (format "Consider using :hook instead of add-hook within %s" places))))
+      (-each (plist-get package place)
+        (-lambda ((form &as fn-head))
+          (when (eq fn-head 'add-hook)
+            (-let (((_ hook fn) form))
+              (push (format "Consider using :hook (%s . %s) instead of %s"
+                            (string-remove-suffix use-package-hook-name-suffix (symbol-name hook))
+                            fn
+                            form)
+                    warnings))
+            ))))
+    warnings))
 
 (up-doc-rule custom-replace-set-default
     "Suggest using :custom instead of setq-default or set-default."
