@@ -32,6 +32,43 @@
   (should (equal (up-doc--form-to-plist '(use-package graphql-mode :mode "\\.gql\\'"))
                  '(:package graphql-mode :mode ("\\.gql\\'")))))
 
+(ert-deftest up-doc--normalize-mode-list/test ()
+  "Tests all cases."
+  ;; nil
+  (should (equal (up-doc--normalize-mode-list '() 'foo-mode)
+                 '()))
+  ;; single string
+  (should (equal (up-doc--normalize-mode-list '("a") 'foo-mode)
+                 '(("a" . foo-mode))))
+  ;; list of strings
+  (should (equal (up-doc--normalize-mode-list '("a" "b" "c") 'foo-mode)
+                 '(("a" . foo-mode)
+                   ("b" . foo-mode)
+                   ("c" . foo-mode))))
+  ;; nested list of strings
+  (should (equal (up-doc--normalize-mode-list '(("a" "b" "c")) 'foo-mode)
+                 '(("a" . foo-mode)
+                   ("b" . foo-mode)
+                   ("c" . foo-mode))))
+  ;; single cons
+  (should (equal (up-doc--normalize-mode-list '(("a" . foo-mode)) 'foo-mode)
+                 '(("a" . foo-mode))))
+  ;; list of cons
+  (should (equal (up-doc--normalize-mode-list '(("a" . foo-mode) ("b" . foo-mode)) 'foo-mode)
+                 '(("a" . foo-mode)
+                   ("b" . foo-mode))))
+  ;; double nested cons
+  (should (equal (up-doc--normalize-mode-list '((("a" . foo-mode) ("b" . foo-mode))) 'foo-mode)
+                 '(("a" . foo-mode)
+                   ("b" . foo-mode))))
+  ;; extended format single
+  (should (equal (up-doc--normalize-mode-list '(("a" foo-mode t)) 'foo-mode)
+                 '(("a" foo-mode t))))
+  ;; extended format double nested
+  (should (equal (up-doc--normalize-mode-list '((("a" foo-mode t) ("b" foo-mode t))) 'foo-mode)
+                 '(("a" foo-mode t)
+                   ("b" foo-mode t)))))
+
 (ert-deftest up-doc-lint/test-1 ()
   "Tests linting."
   (should (up-doc-lint '(use-package foo-pkg
