@@ -137,6 +137,26 @@ suggestion."
     (when bad-hooks
       (format "hooks for symbols %s should use defuns instead of lambdas" bad-hooks))))
 
+(up-doc-rule hook-warn-double-hook
+    "Complain if a :hook symbol has suffix -hook."
+  ;; hook can be
+  ;; 1. a symbol
+  ;; 2. a list of cons, looks like '((x-hook . fn) ...)
+  ;; 3. a list of symbols '((x-hook y-hook z-hook))
+  ;; 4. a cons with a list of symbols '(((x-hook y-hook z-hook) . fn) ...)
+  (let* ((hooks (plist-get package :hook))
+         ;; attempt to normalize
+         (hooks (if (not (-cons-pair-p (car hooks))) (-flatten-n 1 hooks) hooks))
+         (bad-hooks nil))
+    (dolist (hook hooks)
+      (let ((hook-sym (cond ((symbolp hook) hook)
+                            ((-cons-pair-p hook) (car hook)))))
+       (--each (if (listp hook-sym) hook-sym (list hook-sym))
+         (when (string-suffix-p use-package-hook-name-suffix (symbol-name it))
+           (push it bad-hooks)))))
+    (when bad-hooks
+      (format "hooks %s should not end in default suffix %s" bad-hooks use-package-hook-name-suffix))))
+
 (up-doc-rule add-hook-instead-of-hook
     "Suggest using :hook instead of add-hook."
   (let (places)
