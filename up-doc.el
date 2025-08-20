@@ -254,6 +254,38 @@ suggestion."
             (push result warnings)))))
     (nreverse warnings)))
 
+;;;; Tools:
+
+(defun up-doc-list-missing-modes ()
+  "List unbound targets of auto mode regexps.
+This can detect cases where use-package incorrectly guesses the mode name of a package."
+  (interactive)
+  (with-current-buffer (get-buffer-create "*Missing Modes*")
+    (erase-buffer)
+    (cl-prettyprint (-filter (-lambda ((_ . fn))
+                               (and (symbolp fn) ;; this guards against entries like (regexp fn flag)
+                                    (not (fboundp fn))))
+                             auto-mode-alist))
+    (pop-to-buffer (current-buffer))))
+
+(defun up-doc-remove-auto-mode (sym)
+  "Remove all entries for SYM from `auto-mode-alist'."
+  (interactive "s")
+  (when (stringp sym)
+    (setq sym (intern sym)))
+  (setq auto-mode-alist (rassq-delete-all sym auto-mode-alist)))
+
+(defun up-doc--autoloadable-p (symbol)
+  "Whether SYMBOL can be or was once autoloaded."
+  ;; There are some built in modes like text-mode, lisp-mode, fundamental-mode
+  ;; that are just loaded, not autoloaded.
+  (or
+   ;; non-loaded functions
+   ;; TODO these may not be valid however
+   (autoloadp (symbol-function fn))
+   ;; functions loaded by autoload
+   (seq-some 'autoloadp (function-get fn 'function-history))))
+
 (provide 'up-doc)
 
 ;;; up-doc.el ends here
