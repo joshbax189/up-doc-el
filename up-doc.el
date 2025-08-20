@@ -243,7 +243,9 @@ suggestion."
       (with-demoted-errors "rule error: %s"
         (when-let* ((rule (alist-get r up-doc-rules))
                     (result (funcall (plist-get rule :function) package)))
-          (push result warnings))))
+          (if (listp result)
+              (setq warnings (append result warnings))
+            (push result warnings)))))
     (nreverse warnings)))
 
 (provide 'up-doc)
