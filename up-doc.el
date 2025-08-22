@@ -280,6 +280,10 @@ suggestion."
 
 (defun up-doc-lint (form)
   "Lint a use-package FORM for common issues."
+  (interactive (let ((f (read (thing-at-point 'sexp))))
+                 (if (not (eq 'use-package (car f)))
+                     (user-error "Move point to the start of a use-package form.")
+                   (list f))))
   (let ((package (up-doc--form-to-plist form))
         (warnings '())
         (rules (up-doc--rule-names)))
