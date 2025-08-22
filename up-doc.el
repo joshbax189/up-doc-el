@@ -322,6 +322,65 @@ This can detect cases where use-package incorrectly guesses the mode name of a p
    ;; functions loaded by autoload
    (seq-some 'autoloadp (function-get fn 'function-history))))
 
+(defun up-doc-cleanup (form)
+  "Remove additional configuration that use-package FORM may have added."
+  (interactive (let ((f (read (thing-at-point 'sexp))))
+                 (if (not (eq 'use-package (car f)))
+                     (user-error "Move point to the start of a use-package form.")
+                   (list f))))
+  (let* ((form-plist (up-doc--form-to-plist form))
+         (package (plist-get form-plist :package)))
+    (message "removing package %s" package)
+    (with-demoted-errors "up-doc %s"
+      (unload-feature package))
+
+    ;; TODO check :interpreter format and effect
+    ;; :mode :magic :magic-fallback :interpreter
+    (dolist (type '(:mode :magic :magic-fallback :interpreter))
+      (when-let* ((modes (plist-get form-plist type))
+                  (modes (up-doc--normalize-mode-list modes (use-package-as-mode package)))
+                  (mode-syms (-uniq (map-values modes))))
+        (dolist (m mode-syms)
+          (message "removing %s binding for %s" type m)
+          (up-doc-remove-auto-mode m))))
+
+    ;; load-path
+    (when-let* ((path (plist-get form-plist :load-path)))
+      (message "removing %s from load-path" path)
+      (setq load-path (delete path load-path)))
+
+    ;; autoloads
+    (let ((autoload-sym (intern (concat (symbol-name package) "-autoloads"))))
+      (message "removing %s" autoload-sym)
+      (with-demoted-errors "up-doc: %s"
+        (unload-feature autoload-sym)))
+
+    ;; hooks
+    (when-let* ((hooks (plist-get form-plist :hooks))
+                (hooks (up-doc--normalize-hook-list hooks (use-package-as-mode package))))
+      ;; TODO check if normalisation if done
+      (dolist (hcons hooks)
+        (message "remove function %s from hook %s" (cdr hcons) (car hcons))
+        (with-demoted-errors "up-doc: %s"
+          (remove-hook (car hcons) (cdr hcons)))))
+
+    ;; custom
+    (when-let* ((customs (plist-get form-plist :custom)))
+      (dolist (ccons customs)
+        (when-let* ((custom (car ccons))
+                    (_ (boundp custom)))
+          (message "reset custom variable %s" custom)
+          (let* ((orig-val-expr (get sym 'standard-value)))
+            (when-let* ((_ (consp orig-val-expr))
+                        (orig-val (ignore-errors
+                                    (list
+                                     (eval (car orig-val-expr))))))
+              (setopt custom (car orig-val)))))))
+
+    ;; TODO
+    ;; bindings
+    ))
+
 (provide 'up-doc)
 
 ;;; up-doc.el ends here
