@@ -111,6 +111,42 @@ The result will always be a list of forms."
     ;; (("a" . fn) ("b" . fn))
     form-list)))
 
+;; cf use-package-normalize/:hook
+(defun up-doc--normalize-hook-list (form-list mode-fn)
+  "Convert :hook arguments FORM-LIST to ???.
+The result will always be a list of forms."
+  ;; mode-fn can be found with use-package-as-mode
+  (cond
+   ;; nil
+   ((null form-list)
+    nil)
+   ;; (a ...)
+   ((seq-every-p #'symbolp form-list)
+    (-map (lambda (x) (cons x mode-fn)) form-list))
+   ((eq 1 (length form-list))
+    (let ((inner (car form-list)))
+      (cond
+       ;; a single cons cell
+       ;; ((a . b)) or (((a...) . b))
+       ((and (consp inner)
+             (symbolp (cdr inner)))
+        (if (listp (car inner))
+            (-map (lambda (x) (cons x . (cdr inner))) (car inner))
+          form-list))
+       ;; a list of symbols
+       ;; ((a b ...))
+       ;; or a double nested list
+       (t
+        (up-doc--normalize-mode-list (car form-list) mode-fn)))))
+   ;; a list with multiple non-symbol elements
+   (t
+    ;; ((a . b)) or (((a...) . b))
+    (-map (-lambda ((targets . fn))
+            (if (listp targets)
+                (-map (lambda (x) (cons x . fn)) targets)
+              (targets . fn)))
+          form-list))))
+
 (defun up-doc--rule-names ()
   "Rule names in `up-doc-rules'."
   (-uniq (map-keys up-doc-rules)))
