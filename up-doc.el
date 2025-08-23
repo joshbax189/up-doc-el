@@ -258,15 +258,19 @@ suggestion."
 
 (up-doc-rule custom-replace-setq
     "Suggest using :custom instead of setq."
-  (let (places)
+  (let (warnings)
     (dolist (place up-doc-code-like)
-      ;; TODO also report the variable
-      (when (seq-some (-lambda ((fn-head v)) (and (eq fn-head 'setq)
-                                                  (custom-variable-p v)))
-                      (plist-get package place))
-        (push place places)))
-    (when places
-      (format "Consider using :custom instead of setq for custom variables within %s" places))))
+      (-each (plist-get package place)
+        (-lambda ((form &as fn-head v exp))
+          ;; TODO also consider (setq x v y v ...)?
+          (when (and (eq fn-head 'setq)
+                     (custom-variable-p v))
+            (push (format "Consider using :custom (%s . %s) instead of %s for custom variable"
+                          v
+                          exp
+                          form)
+                  warnings)))))
+    warnings))
 
 (up-doc-rule custom-replace-setopt
     "Suggest using :custom instead of setf."

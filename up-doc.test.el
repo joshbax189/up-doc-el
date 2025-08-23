@@ -168,4 +168,8 @@ _C-n_ext line  _a_ll              _R_efine               _C-z_: undo
                 (:map smerge-mode-map
                       ("C-c m" . smerge-hydra/body))))))
 
+(ert-deftest up-doc-lint/test-custom ()
+  "Tests custom var warning."
+  (should (up-doc-lint '(use-package foo :init (setq use-package-hook-name-suffix 1) (setq foo-2 2) (message "hi")))))
+
 ;;; up-doc.test.el ends here
