@@ -99,17 +99,19 @@
 (ert-deftest up-doc-lint/test-hook-structure ()
   "Tests linting."
   ;; hook rule should not trigger on this one
-  (should-not (up-doc-lint '(use-package fren
-                              :straight nil
-                              :hook
-                              ((a-hook b-hook c-hook) . fn)
-                              (x-hook . fn))))
-  (should (up-doc-lint '(use-package fren
-                          :straight nil
-                          :hook
-                          ;; unnecessary nesting
-                          ((a-hook . fn)
-                           (x-hook . fn))))))
+  (let ((use-package-hook-name-suffix nil))
+
+   (should-not (up-doc-lint '(use-package fren
+                               :hook
+                               ((a-hook b-hook c-hook) . fn)
+                               (x-hook . fn))))
+   (should (equal (up-doc-lint '(use-package fren
+                            :straight nil
+                            :hook
+                            ;; unnecessary nesting
+                            ((a-hook . fn)
+                             (x-hook . fn))))
+                  '("consider inlining contents of :hook keyword to reduce nesting")))))
 
 (ert-deftest up-doc-lint/test-5 ()
   "Should suggest adding :hook."
