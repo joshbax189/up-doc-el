@@ -246,24 +246,14 @@ suggestion."
             ))))
     warnings))
 
-(up-doc-rule custom-replace-set-default
-    "Suggest using :custom instead of setq-default or set-default."
-  (let (places)
-    (dolist (place up-doc-code-like)
-      (when (seq-some (-lambda ((fn-head)) (or (eq fn-head 'setq-default) (eq fn-head 'set-default)))
-                      (plist-get package place))
-        (push place places)))
-    (when places
-      (format "Consider using :custom instead of setq-default or set-default within %s" places))))
-
-(up-doc-rule custom-replace-setq
-    "Suggest using :custom instead of setq."
+(up-doc-rule custom-replace-set
+    "Suggest using :custom instead of setq, setq-default, or setopt."
   (let (warnings)
     (dolist (place up-doc-code-like)
       (-each (plist-get package place)
         (-lambda ((form &as fn-head v exp))
           ;; TODO also consider (setq x v y v ...)?
-          (when (and (eq fn-head 'setq)
+          (when (and (memq fn-head '(setq setq-default set-default setopt))
                      (custom-variable-p v))
             (push (format "Consider using :custom (%s . %s) instead of %s for custom variable"
                           v
@@ -271,16 +261,6 @@ suggestion."
                           form)
                   warnings)))))
     warnings))
-
-(up-doc-rule custom-replace-setopt
-    "Suggest using :custom instead of setf."
-  (let (places)
-    (dolist (place up-doc-code-like)
-      (when (seq-some (-lambda ((fn-head)) (eq fn-head 'setopt))
-                      (plist-get package place))
-        (push place places)))
-    (when places
-      (format "Consider using :custom instead of setopt within %s" places))))
 
 (defun up-doc-lint (form)
   "Lint a use-package FORM for common issues."
