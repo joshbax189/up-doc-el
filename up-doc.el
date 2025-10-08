@@ -372,6 +372,21 @@ This can detect cases where use-package incorrectly guesses the mode name of a p
     ;; bindings
     ))
 
+(defun up-doc-remove-hook-at-point ()
+  "Remove a hook specified in a `use-package' :hook block."
+  (interactive)
+  (when-let* ((hook-sexp (sexp-at-point))
+              (hook (symbol-name (car hook-sexp)))
+              (hook (if (string-suffix-p use-package-hook-name-suffix hook)
+                        hook
+                      (concat hook use-package-hook-name-suffix)))
+              (fn (cdr hook-sexp)))
+    (unless (boundp (intern hook))
+      (user-error "Not a hook: %s" hook))
+    (when (yes-or-no-p (format "Remove %s from hook %s" fn hook))
+      ;; this fails silently
+      (remove-hook hook fn))))
+
 (provide 'up-doc)
 
 ;;; up-doc.el ends here
