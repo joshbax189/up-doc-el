@@ -117,7 +117,7 @@
   "Should suggest adding :hook."
   (should (up-doc-lint '(use-package fren
                           :init
-                          (add-hook fren-hook (lambda () (message "hi")))))))
+                          (add-hook 'fren-hook (lambda () (message "hi")))))))
 
 (ert-deftest up-doc-lint/test-6 ()
   "Tests linting."

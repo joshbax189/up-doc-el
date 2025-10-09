@@ -239,11 +239,11 @@ suggestion."
           (when (eq fn-head 'add-hook)
             (-let (((_ hook fn) form))
               (push (format "Consider using :hook (%s . %s) instead of %s"
-                            (string-remove-suffix use-package-hook-name-suffix (symbol-name hook))
+                            ;; hook is 'some-hook i.e. (quote some-hook), so use eval here
+                            (string-remove-suffix use-package-hook-name-suffix (symbol-name (eval hook)))
                             fn
                             form)
-                    warnings))
-            ))))
+                    warnings))))))
     warnings))
 
 (up-doc-rule custom-replace-set
