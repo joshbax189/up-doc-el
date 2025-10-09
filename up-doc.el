@@ -186,8 +186,9 @@ suggestion."
 (up-doc-rule hook-inline-nested
     "Complain if :hook argument is of the form '((x-hook . fn) (y-hook . fn) ...)."
   (-when-let* ((hooks (plist-get package :hook))
-               (_ (eq 1 (length hooks)))
-               (_ (listp (car hooks)))
+               (_ (eq 1 (proper-list-p hooks))) ;; nil if a dotted cons
+               (_ (proper-list-p (car hooks)))
+               (_ (consp (car (car hooks)))) ;; should be a dotted cons too
                ((((a . b))) hooks)
                (_ (symbolp b)))
     (format "consider inlining contents of :hook keyword to reduce nesting")))
