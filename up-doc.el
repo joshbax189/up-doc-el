@@ -273,13 +273,18 @@ suggestion."
         (rules (up-doc--rule-names)))
 
     (dolist (r rules)
-      (with-demoted-errors "rule error: %s"
-        (when-let* ((rule (alist-get r up-doc-rules))
-                    (result (funcall (plist-get rule :function) package)))
-          (if (listp result)
-              (setq warnings (append result warnings))
-            (push result warnings)))))
-    (nreverse warnings)))
+      (condition-case err
+          (when-let* ((rule (alist-get r up-doc-rules))
+                      (result (funcall (plist-get rule :function) package)))
+            (if (listp result)
+                (setq warnings (append result warnings))
+              (push result warnings)))
+        (error (message "Error in rule %s:\n  %s" (symbol-name r) err))))
+    ;; print results
+    (let ((result (nreverse warnings)))
+      (when (interactive-p)
+        (dolist (m result) (message "%s" m)))
+      result)))
 
 ;;;; Tools:
 
