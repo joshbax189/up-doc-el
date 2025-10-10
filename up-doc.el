@@ -34,6 +34,7 @@
 (require 'use-package)
 (require 'dash)
 (require 'map)
+(require 'cl-extra)
 
 (defconst up-doc-code-like '(:preface :init :config)
   "The bodies of these keywords are evaluated like code.")
