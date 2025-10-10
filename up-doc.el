@@ -401,12 +401,9 @@ This can detect cases where use-package incorrectly guesses the mode name of a p
         (when-let* ((custom (car ccons))
                     (_ (boundp custom)))
           (message "reset custom variable %s" custom)
-          (let* ((orig-val-expr (get sym 'standard-value)))
-            (when-let* ((_ (consp orig-val-expr))
-                        (orig-val (ignore-errors
-                                    (list
-                                     (eval (car orig-val-expr))))))
-              (setopt custom (car orig-val)))))))
+          ;; reset the value by removing it from the "use-package" theme
+          (custom-theme-reset-variables 'use-package '(custom))
+          (custom-theme-recalc-variable custom))))
 
     ;; TODO
     ;; bindings
