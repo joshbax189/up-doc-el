@@ -113,6 +113,8 @@ The result will always be a list of forms."
     form-list)))
 
 ;; cf use-package-normalize/:hook
+;; TODO this does not change the names of the fns to -hook
+;; it probably should, e.g. (use-package blah :hook a b c) uses a-hook etc
 (defun up-doc--normalize-hook-list (form-list mode-fn)
   "Convert :hook arguments FORM-LIST to ???.
 The result will always be a list of forms."
@@ -123,31 +125,31 @@ The result will always be a list of forms."
     nil)
    ;; (a ...)
    ((seq-every-p #'symbolp form-list)
-    ;; ((a . mode-fn) ...)
-    (-zip-fill mode-fn form-list '()))
-   ((eq 1 (length form-list))
+    (--map (cons it mode-fn) form-list))
+   ((eq 1 (proper-list-p form-list))
     (let ((inner (car form-list)))
       (cond
        ;; a single cons cell
        ;; ((a . b)) or (((a...) . b))
        ((and (consp inner)
+             (cdr inner)
              (symbolp (cdr inner)))
-        (if (listp (car inner))
-            (-map (lambda (x) (cons x (cdr inner))) (car inner))
+        (if (proper-list-p (car inner))
+            (--map (cons it (cdr inner)) (car inner))
           form-list))
        ;; a list of symbols
        ;; ((a b ...))
        ;; or a double nested list
        (t
-        (up-doc--normalize-mode-list (car form-list) mode-fn)))))
+        (up-doc--normalize-hook-list (car form-list) mode-fn)))))
    ;; a list with multiple non-symbol elements
    (t
     ;; ((a . b)) or (((a...) . b))
-    (-map (-lambda ((targets . fn))
-            (if (listp targets)
-                (-map (lambda (x) (cons x fn)) targets)
-              (cons targets fn)))
-          form-list))))
+    (-mapcat (-lambda ((targets . fn))
+               (if (listp targets)
+                   (--map (cons it fn) targets)
+                 (list (cons targets fn))))
+             form-list))))
 
 (defun up-doc--rule-names ()
   "Rule names in `up-doc-rules'."

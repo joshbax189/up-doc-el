@@ -69,6 +69,47 @@
                  '(("a" foo-mode t)
                    ("b" foo-mode t)))))
 
+(ert-deftest up-doc--normalize-hook-list/test ()
+  "Tests basic operation."
+  ;; nil
+  (should (equal (up-doc--normalize-hook-list '() 'foo-mode)
+                 '()))
+  ;; simplest cases
+  (should (equal (up-doc--normalize-hook-list '(bar) 'foo-mode)
+                 '((bar . foo-mode))))
+  (should (equal (up-doc--normalize-hook-list '(bar1 bar2) 'foo-mode)
+                 '((bar1 . foo-mode) (bar2 . foo-mode))))
+  (should (equal (up-doc--normalize-hook-list '((bar . baz-mode)) 'foo-mode)
+                 '((bar . baz-mode)))))
+
+(ert-deftest up-doc--normalize-hook-list/test-distribution ()
+  "Tests that distribution is properly handled."
+  (should (equal (up-doc--normalize-hook-list '(((a b c) . foo-mode)) 'foo-mode)
+                 '((a . foo-mode)
+                   (b . foo-mode)
+                   (c . foo-mode))))
+  (should (equal (up-doc--normalize-hook-list '(((a b c) . foo-mode) (d . bar-mode)) 'foo-mode)
+                 '((a . foo-mode)
+                   (b . foo-mode)
+                   (c . foo-mode)
+                   (d . bar-mode)))))
+
+(ert-deftest up-doc--normalize-hook-list/test-double-nesting ()
+  "Tests that nesting is properly handled."
+  (should (equal (up-doc--normalize-hook-list '(((a . foo-mode))) 'foo-mode)
+                 '((a . foo-mode))))
+  (should (equal (up-doc--normalize-hook-list '(((a))) 'foo-mode)
+                 '((a . foo-mode)))))
+
+(ert-deftest up-doc--normalize-hook-list/test-double-nesting-2 ()
+  "Tests that nesting is properly handled with two elements."
+  (should (equal (up-doc--normalize-hook-list '(((a b))) 'foo-mode)
+                 '((a . foo-mode)
+                   (b . foo-mode))))
+  (should (equal (up-doc--normalize-hook-list '(((a . foo-mode) (b . foo-mode))) 'foo-mode)
+                 '((a . foo-mode)
+                   (b . foo-mode)))))
+
 (ert-deftest up-doc-lint/test-1 ()
   "Tests linting."
   (should (up-doc-lint '(use-package foo-pkg
