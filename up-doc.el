@@ -407,7 +407,21 @@ This can detect cases where use-package incorrectly guesses the mode name of a p
 
     ;; TODO
     ;; bindings
-    ))
+
+    ;; eval-after-loads
+    ;; note these can miss entries which are added under other package names
+    ;; but it is likely these are created by the package itself, not use-package
+    (message "removing entries from after-load-alist")
+    (let ((package-file (concat (symbol-name package) ".el")))
+     (setq after-load-alist
+           (seq-remove (-lambda ((re . _))
+                         (cond
+                          ;; remove (regex . some-fn) where regex matches package.el, package.elc etc
+                          ((stringp re) (string-match-p re package-file))
+                          ;; remove entries like (package . some-fn)
+                          ((symbolp re) (equal package re))
+                          (t nil)))
+                       after-load-alist)))))
 
 (defun up-doc-remove-hook-at-point ()
   "Remove a hook specified in a `use-package' :hook block."

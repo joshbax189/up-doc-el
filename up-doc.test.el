@@ -172,4 +172,29 @@ _C-n_ext line  _a_ll              _R_efine               _C-z_: undo
   "Tests custom var warning."
   (should (up-doc-lint '(use-package foo :init (setq use-package-hook-name-suffix 1) (setq foo-2 2) (message "hi")))))
 
+(ert-deftest up-doc-cleanup/test-remove-after-load-symbol ()
+  "Should remove entries from `after-load-alist'."
+  (unwind-protect
+      (with-mock
+        (stub unload-feature)
+        (eval-after-load 'blah
+          (message "blah"))
+        ;; should always be cleaned no matter the form
+        (up-doc-cleanup '(use-package blah))
+        (should-not (member 'blah after-load-alist)))
+    (setq after-load-alist (assoc-delete-all 'blah after-load-alist))))
+
+(ert-deftest up-doc-cleanup/test-remove-after-load-regexp ()
+  "Should remove entries from `after-load-alist' which trigger off a regexp."
+  (let ((original after-load-alist))
+   (unwind-protect
+       (with-mock
+         (stub unload-feature)
+         ;; this produces a binding to a regexp matching the file
+         (eval-after-load "blah.el"
+           (message "blah"))
+         ;; should always be cleaned no matter the form
+         (up-doc-cleanup '(use-package blah))
+         (should-not (member 'blah after-load-alist)))
+     (setq after-load-alist original))))
 ;;; up-doc.test.el ends here
