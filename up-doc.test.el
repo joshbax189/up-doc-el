@@ -61,13 +61,27 @@
   (should (equal (up-doc--normalize-mode-list '((("a" . foo-mode) ("b" . foo-mode))) 'foo-mode)
                  '(("a" . foo-mode)
                    ("b" . foo-mode))))
-  ;; extended format single
-  (should (equal (up-doc--normalize-mode-list '(("a" foo-mode t)) 'foo-mode)
-                 '(("a" foo-mode t))))
-  ;; extended format double nested
-  (should (equal (up-doc--normalize-mode-list '((("a" foo-mode t) ("b" foo-mode t))) 'foo-mode)
-                 '(("a" foo-mode t)
-                   ("b" foo-mode t)))))
+  ;; although these are valid auto-mode-alist formats, they can't be parsed by use-package
+  ;; ;; extended format single
+  ;; (should (equal (up-doc--normalize-mode-list '(("a" foo-mode t)) 'foo-mode)
+  ;;                '(("a" foo-mode t))))
+  ;; ;; extended format double nested
+  ;; (should (equal (up-doc--normalize-mode-list '((("a" foo-mode t) ("b" foo-mode t))) 'foo-mode)
+  ;;                '(("a" foo-mode t)
+  ;;                  ("b" foo-mode t))))
+  )
+
+(ert-deftest up-doc--normalize-mode-list/test-mixed ()
+  "Tests cases with both string and alist."
+  (should (equal (up-doc--normalize-mode-list '("a" ("b" . bar-mode)) 'foo-mode)
+                 '(("a" . foo-mode)
+                   ("b" . bar-mode))))
+  (should (equal (up-doc--normalize-mode-list '(("a" ("b" . bar-mode))) 'foo-mode)
+                 '(("a" . foo-mode)
+                   ("b" . bar-mode))))
+  (should (equal (up-doc--normalize-mode-list '(("a" . foo-mode) "b") 'foo-mode)
+                 '(("a" . foo-mode)
+                   ("b" . foo-mode)))))
 
 (ert-deftest up-doc--normalize-hook-list/test ()
   "Tests basic operation."

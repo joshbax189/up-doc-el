@@ -78,39 +78,31 @@ The package name is available using the special keyword :package."
       (setq plist (append plist (list current-keyword current-value))))
     plist))
 
-(defun up-doc--normalize-mode-list (form-list mode-fn)
-  "Convert :merge arguments FORM-LIST to `auto-mode-alist' format.
-The result will always be a list of forms."
-  ;; mode-fn can be found with use-package-as-mode
 
-  (cond
-   ;; nil
-   ((null form-list)
-    nil)
-   ;; ("a" ...)
-   ((stringp (car form-list))
-    (-map (lambda (x) (cons x mode-fn)) form-list))
-   ((eq 1 (length form-list))
-    (let ((inner (car form-list)))
-      (cond
-       ;; a single cons cell
-       ;; (("a" . b))
-       ((and (consp inner)
-             (or (symbolp (cdr inner))
-                 (symbolp (cadr inner))))
-        form-list)
-       ;; a list of strings
-       ;; (("a" "b" ...))
-       ((seq-every-p #'stringp inner)
-        (-map (lambda (x) (cons x mode-fn)) inner))
-       ;; assume a double nested list
-       (t
-        (up-doc--normalize-mode-list (car form-list) mode-fn)))))
-   ;; a list with multiple non-string elements
-   (t
-    ;; assume its the correct form?
-    ;; (("a" . fn) ("b" . fn))
-    form-list)))
+(defun up-doc--normalize-mode-list (form-list mode-fn)
+  "Convert :mode arguments FORM-LIST to `auto-mode-alist' format.
+MODE-FN is the function to use if none is explicitly given.
+It can be found by calling `use-package-as-mode'.
+
+The result of this function will always be a list of forms."
+
+  ;; form-list is either
+  ;; 1. [ string | cons string sym ]
+  ;; 2. [ 1. ]
+  (if (seq-every-p
+       (lambda (x)
+         (or (stringp x)
+             (and (consp x)
+                  (stringp (car x))
+                  (cdr x)
+                  (symbolp (cdr x)))))
+       form-list)
+      (--map
+       (if (stringp it) (cons it mode-fn) it)
+       form-list)
+    (if (eq 1 (proper-list-p form-list))
+        (up-doc--normalize-mode-list (car form-list) mode-fn)
+      (error "Bad format for :mode list %S" form-list))))
 
 ;; cf use-package-normalize/:hook
 ;; TODO this does not change the names of the fns to -hook
