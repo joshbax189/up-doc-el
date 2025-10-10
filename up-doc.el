@@ -283,7 +283,7 @@ suggestion."
         (error (message "Error in rule %s:\n  %s" (symbol-name r) err))))
     ;; print results
     (let ((result (nreverse warnings)))
-      (when (interactive-p)
+      (when (called-interactively-p 'any)
         (dolist (m result) (message "%s" m)))
       result)))
 
