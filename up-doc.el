@@ -122,7 +122,8 @@ The result will always be a list of forms."
     nil)
    ;; (a ...)
    ((seq-every-p #'symbolp form-list)
-    (-map (lambda (x) (cons x mode-fn)) form-list))
+    ;; ((a . mode-fn) ...)
+    (-zip-fill mode-fn form-list '()))
    ((eq 1 (length form-list))
     (let ((inner (car form-list)))
       (cond
@@ -131,7 +132,7 @@ The result will always be a list of forms."
        ((and (consp inner)
              (symbolp (cdr inner)))
         (if (listp (car inner))
-            (-map (lambda (x) (cons x . (cdr inner))) (car inner))
+            (-map (lambda (x) (cons x (cdr inner))) (car inner))
           form-list))
        ;; a list of symbols
        ;; ((a b ...))
@@ -143,8 +144,8 @@ The result will always be a list of forms."
     ;; ((a . b)) or (((a...) . b))
     (-map (-lambda ((targets . fn))
             (if (listp targets)
-                (-map (lambda (x) (cons x . fn)) targets)
-              (targets . fn)))
+                (-map (lambda (x) (cons x fn)) targets)
+              (cons targets fn)))
           form-list))))
 
 (defun up-doc--rule-names ()
