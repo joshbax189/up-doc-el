@@ -287,6 +287,38 @@ suggestion."
         (dolist (m result) (message "%s" m)))
       result)))
 
+(defun up-doc-lint-buffer ()
+  "Lint `use-package' forms in the current buffer."
+  (interactive)
+  (let* ((filename (file-name-nondirectory (buffer-file-name)))
+         (up-doc-results (get-buffer-create (format "*up-doc results %s*" filename))))
+   (save-excursion
+     (goto-char (point-min))
+     ;; for first one move across comments
+     (forward-sexp)
+     (while (< (point) (point-max))
+       (when-let* ((current-form (sexp-at-point))
+                   (_ (equal 'use-package (car current-form)))
+                   ;; TODO for some reason this is at the end of the form!
+                   (line (progn (backward-sexp) (line-number-at-pos))))
+         (forward-sexp)
+         ;; TODO store marker etc here
+         (when-let* ((results (up-doc-lint current-form)))
+           (with-current-buffer up-doc-results
+             (insert (format "%s:%s: in %s:\n"
+                             filename
+                             line
+                             (cadr current-form)))
+             (dolist (m results)
+               (insert (format "- %s\n" m))))))
+       (forward-sexp)))
+   (pop-to-buffer up-doc-results)
+   (with-current-buffer up-doc-results (compilation-mode))))
+
+(require 'compile)
+(add-to-list 'compilation-error-regexp-alist-alist '(up-doc . ("\\([[:word:]]+.el\\):\\([[:digit:]]+\\):" 1 2 nil 1)))
+(add-to-list 'compilation-error-regexp-alist 'up-doc)
+
 ;;;; Tools:
 
 (defun up-doc-list-missing-modes ()
