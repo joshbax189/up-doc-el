@@ -347,12 +347,12 @@ This can detect cases where use-package incorrectly guesses the mode name of a p
   (or
    ;; non-loaded functions
    ;; TODO these may not be valid however
-   (autoloadp (symbol-function fn))
+   (autoloadp (symbol-function symbol))
    ;; functions loaded by autoload
-   (seq-some 'autoloadp (function-get fn 'function-history))))
+   (seq-some 'autoloadp (function-get symbol 'function-history))))
 
 (defun up-doc-cleanup (form)
-  "Remove additional configuration that use-package FORM may have added."
+  "Remove additional configuration that `use-package' FORM may have added."
   (interactive (let ((f (read (thing-at-point 'sexp))))
                  (if (not (eq 'use-package (car f)))
                      (user-error "Move point to the start of a use-package form.")
