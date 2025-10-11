@@ -259,6 +259,20 @@ suggestion."
                   warnings)))))
     warnings))
 
+(up-doc-rule custom-symbol-exists
+    "Check that symbols are real variables."
+  (when (featurep (plist-get package :package))
+    (let ((warnings nil)
+          (customs (plist-get package :custom)))
+      (-each customs
+        (-lambda ((v))
+          ;; TODO can try to fuzzy match known symbol
+          (unless (boundp v)
+            (push (format "variable %s is not yet defined" v) warnings))
+          (when (get v 'byte-obsolete-variable)
+            (push (format "variable %s is obsolete" v) warnings))))
+      warnings)))
+
 (defun up-doc-lint (form)
   "Lint a use-package FORM for common issues."
   (interactive (let ((f (read (thing-at-point 'sexp))))
