@@ -343,7 +343,7 @@ suggestion."
 
 (defun up-doc-list-missing-modes ()
   "List unbound targets of auto mode regexps.
-This can detect cases where use-package incorrectly guesses the mode name of a package."
+This can detect when use-package incorrectly guesses the mode name of a package."
   (interactive)
   (with-current-buffer (get-buffer-create "*Missing Modes*")
     (erase-buffer)
@@ -379,7 +379,7 @@ This can be used for example, with `magic-mode-alist':
 
 (defun up-doc-cleanup (form)
   "Remove additional configuration that `use-package' FORM may have added."
-  (interactive (let ((f (read (thing-at-point 'sexp))))
+  (interactive (let ((f (sexp-at-point)))
                  (if (not (eq 'use-package (car f)))
                      (user-error "Move point to the start of a use-package form.")
                    (list f))))
@@ -387,33 +387,38 @@ This can be used for example, with `magic-mode-alist':
          (package (plist-get form-plist :package)))
     (message "removing package %s" package)
     (with-demoted-errors "up-doc %s"
-      (unload-feature package))
+      (unload-feature package t))
 
-    ;; TODO check :interpreter format and effect
-    ;; :mode :magic :magic-fallback :interpreter
+    ;; remove mode list entries
     (dolist (type '(:mode :magic :magic-fallback :interpreter))
       (when-let* ((modes (plist-get form-plist type))
                   (modes (up-doc--normalize-mode-list modes (use-package-as-mode package)))
-                  (mode-syms (-uniq (map-values modes))))
+                  ;; Also check package-name, e.g. (use-package foo :mode "foo") may
+                  ;; use either 'foo or 'foo-mode
+                  (mode-syms (-uniq (cons package (map-values modes)))))
         (dolist (m mode-syms)
           (message "removing %s binding for %s" type m)
-          (up-doc-remove-auto-mode m))))
+          (pcase type
+           (:mode (up-doc-remove-auto-mode m))
+           (:magic (up-doc-remove-auto-mode m 'magic-mode-alist))
+           (:magic-fallback (up-doc-remove-auto-mode m 'magic-fallback-mode-alist))
+           (:interpreter (up-doc-remove-auto-mode m 'interpreter-mode-alist))))))
 
     ;; load-path
-    (when-let* ((path (plist-get form-plist :load-path)))
-      (message "removing %s from load-path" path)
-      (setq load-path (delete path load-path)))
+    (when-let* ((paths (plist-get form-plist :load-path)))
+      (dolist (path paths)
+       (message "removing %s from load-path" path)
+       (setq load-path (delete path load-path))))
 
     ;; autoloads
     (let ((autoload-sym (intern (concat (symbol-name package) "-autoloads"))))
       (message "removing %s" autoload-sym)
       (with-demoted-errors "up-doc: %s"
-        (unload-feature autoload-sym)))
+        (unload-feature autoload-sym t)))
 
     ;; hooks
-    (when-let* ((hooks (plist-get form-plist :hooks))
+    (when-let* ((hooks (plist-get form-plist :hook))
                 (hooks (up-doc--normalize-hook-list hooks (use-package-as-mode package))))
-      ;; TODO check if normalisation if done
       (dolist (hcons hooks)
         (message "remove function %s from hook %s" (cdr hcons) (car hcons))
         (with-demoted-errors "up-doc: %s"

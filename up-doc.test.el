@@ -4,6 +4,7 @@
 
 (require 'ert)
 (require 'up-doc)
+(require 'el-mock)
 
 (ert-deftest up-doc--form-to-plist/test-no-arg ()
   "Keywords with no argument should default to t."
@@ -235,6 +236,119 @@ _C-n_ext line  _a_ll              _R_efine               _C-z_: undo
 (ert-deftest up-doc-lint/test-custom ()
   "Tests custom var warning."
   (should (up-doc-lint '(use-package foo :init (setq use-package-hook-name-suffix 1) (setq foo-2 2) (message "hi")))))
+
+(ert-deftest up-doc-cleanup/test-trivial ()
+  "Should work with a fake empty package."
+  (up-doc-cleanup '(use-package blah)))
+
+(ert-deftest up-doc-cleanup/test-unloads ()
+  "Should unload the package."
+  (with-mock
+    (mock (unload-feature * t) => nil :times 2)
+    (up-doc-cleanup '(use-package blah))))
+
+(ert-deftest up-doc-cleanup/test-mode-alist-1 ()
+  "Should remove entry from `auto-mode-alist'."
+  (unwind-protect
+      (with-mock
+        (stub unload-feature)
+        (add-to-list 'auto-mode-alist '("\\foo\\" . blah))
+        ;; TODO (use-package-as-mode) says blah-mode, but use-package actually uses just blah
+        (up-doc-cleanup '(use-package blah :mode "\\foo\\"))
+        (should-not (assoc-string "\\foo\\" auto-mode-alist)))
+    (setq auto-mode-alist (rassq-delete-all 'blah auto-mode-alist))))
+
+(ert-deftest up-doc-cleanup/test-mode-alist-2 ()
+  "Should remove entry from `auto-mode-alist'."
+  (unwind-protect
+      (with-mock
+        (stub unload-feature)
+        (add-to-list 'auto-mode-alist '("\\foo\\" . blah-mode))
+        (up-doc-cleanup '(use-package blah :mode ("\\foo\\" . blah-mode)))
+        (should-not (assoc-string "\\foo\\" auto-mode-alist)))
+    (setq auto-mode-alist (rassq-delete-all 'blah-mode auto-mode-alist))))
+
+(ert-deftest up-doc-cleanup/test-load-path ()
+  "Should remove entry from `load-path'."
+  (let ((load-path-copy load-path))
+   (unwind-protect
+       (with-mock
+         (stub unload-feature)
+         (add-to-list 'load-path "/some/path")
+         (up-doc-cleanup '(use-package blah :load-path "/some/path"))
+         (should-not (member "/some/path" load-path)))
+     (setq load-path load-path-copy))))
+
+(ert-deftest up-doc-cleanup/test-hook ()
+  "Should remove hook."
+  (unwind-protect
+      (with-mock
+        (stub unload-feature)
+        (defvar foo-hook nil "testing")
+        (add-hook 'foo-hook 'my-fn)
+        (up-doc-cleanup '(use-package blah :hook (foo-hook . my-fn)))
+        (should-not (member 'my-fn foo-hook)))
+    (makunbound 'foo-hook)))
+
+(ert-deftest up-doc-cleanup/test-hook-nested ()
+  "Should remove hook."
+  (unwind-protect
+      (with-mock
+        (stub unload-feature)
+        (defvar foo-hook nil "testing")
+        (add-hook 'foo-hook 'my-fn)
+        (up-doc-cleanup '(use-package blah :hook ((foo-hook . my-fn))))
+        (should-not (member 'my-fn foo-hook)))
+    (makunbound 'foo-hook)))
+
+(ert-deftest up-doc-cleanup/test-hook-single-name ()
+  "Should remove hook."
+  (unwind-protect
+      (with-mock
+        (stub unload-feature)
+        (defvar foo-hook nil "testing")
+        (add-hook 'foo-hook 'blah-mode)
+        (up-doc-cleanup '(use-package blah :hook foo))
+        (should-not (member 'blah-mode foo-hook)))
+    (makunbound 'foo-hook)))
+
+(ert-deftest up-doc-cleanup/test-hook-multi-name ()
+  "Should remove hook."
+  (unwind-protect
+      (with-mock
+        (stub unload-feature)
+        (defvar foo-hook nil "testing")
+        (defvar bar-hook nil "testing")
+        (defvar baz-hook nil "testing")
+        (add-hook 'foo-hook 'blah-mode)
+        (add-hook 'bar-hook 'blah-mode)
+        (add-hook 'baz-hook 'blah-mode)
+        (up-doc-cleanup '(use-package blah :hook foo bar baz))
+        (should-not (member 'blah-mode foo-hook))
+        (should-not (member 'blah-mode bar-hook))
+        (should-not (member 'blah-mode baz-hook)))
+    (makunbound 'foo-hook)
+    (makunbound 'bar-hook)
+    (makunbound 'baz-hook)))
+
+(ert-deftest up-doc-cleanup/test-custom-reset ()
+  "Should reset custom variable."
+  (unwind-protect
+      (let ((original-value 123))
+        (defcustom my-custom-var original-value
+          "My custom var."
+          :type 'integer)
+        ;; assume use-package theme is defined at this stage
+        ;; TODO this might fail in CI?
+        (custom-theme-set-variables 'use-package
+                                    '(my-custom-var 456 nil
+                                                    nil
+                                                    "Customized with use-package blah"))
+        (with-mock
+          (stub unload-feature)
+          (up-doc-cleanup '(use-package blah :custom (my-custom-var 456)))
+          (should (equal my-custom-var original-value))))
+    (makunbound 'my-custom-var)))
 
 (ert-deftest up-doc-cleanup/test-remove-after-load-symbol ()
   "Should remove entries from `after-load-alist'."
