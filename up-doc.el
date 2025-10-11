@@ -108,40 +108,41 @@ The result of this function will always be a list of forms."
 ;; TODO this does not change the names of the fns to -hook
 ;; it probably should, e.g. (use-package blah :hook a b c) uses a-hook etc
 (defun up-doc--normalize-hook-list (form-list mode-fn)
-  "Convert :hook arguments FORM-LIST to ???.
-The result will always be a list of forms."
-  ;; mode-fn can be found with use-package-as-mode
-  (cond
-   ;; nil
-   ((null form-list)
-    nil)
-   ;; (a ...)
-   ((seq-every-p #'symbolp form-list)
-    (--map (cons it mode-fn) form-list))
-   ((eq 1 (proper-list-p form-list))
-    (let ((inner (car form-list)))
-      (cond
-       ;; a single cons cell
-       ;; ((a . b)) or (((a...) . b))
-       ((and (consp inner)
-             (cdr inner)
-             (symbolp (cdr inner)))
-        (if (proper-list-p (car inner))
-            (--map (cons it (cdr inner)) (car inner))
-          form-list))
-       ;; a list of symbols
-       ;; ((a b ...))
-       ;; or a double nested list
-       (t
-        (up-doc--normalize-hook-list (car form-list) mode-fn)))))
-   ;; a list with multiple non-symbol elements
-   (t
-    ;; ((a . b)) or (((a...) . b))
-    (-mapcat (-lambda ((targets . fn))
-               (if (listp targets)
-                   (--map (cons it fn) targets)
-                 (list (cons targets fn))))
-             form-list))))
+  "Convert :hook arguments FORM-LIST to an alist of (hook . fn).
+
+MODE-FN is the function to use if none is explicitly given.
+It can be found by calling `use-package-as-mode'.
+
+The result of this function will always be a list of forms."
+  ;; either
+  ;; 1. [ symbol | cons symbol (symbol|lambda) | [symbol] | cons (symbol+) (symbol|lambda) ]
+  ;; 2. [ 1. ]
+
+  ;; proper-list-p is nil for (cons X lambda)
+
+  (if (seq-every-p
+       (lambda (x)
+         (or (symbolp x)
+             (and (consp x)
+                  (not (proper-list-p x)))
+             (and (listp x)
+                  (seq-every-p #'symbolp x))))
+       form-list)
+      (-mapcat
+       (lambda (x)
+         (cond
+          ((symbolp x)
+           (list (cons x mode-fn)))
+          ((and (consp x) (not (proper-list-p x)))
+           (if (symbolp (car x))
+               (list (cons (car x) (cdr x)))
+             (--map (cons it (cdr x)) (car x))))
+          ((listp x) (up-doc--normalize-hook-list x mode-fn))
+          (t (error "Something went wrong processing %S" x))))
+       form-list)
+    (if (eq 1 (proper-list-p form-list))
+        (up-doc--normalize-hook-list (car form-list) mode-fn)
+      (error "Bad format for :hook list %S" form-list))))
 
 (defun up-doc--rule-names ()
   "Rule names in `up-doc-rules'."

@@ -124,6 +124,15 @@
                  '((a . foo-mode)
                    (b . foo-mode)))))
 
+(ert-deftest up-doc--normalize-hook-list/test-mixed ()
+  "Tests that nesting is properly handled."
+  (should (equal (up-doc--normalize-hook-list '((a . foo-mode) (b c) ((d e) . bar-mode)) 'foo-mode)
+                 '((a . foo-mode)
+                   (b . foo-mode)
+                   (c . foo-mode)
+                   (d . bar-mode)
+                   (e . bar-mode)))))
+
 (ert-deftest up-doc-lint/test-1 ()
   "Tests linting."
   (should (up-doc-lint '(use-package foo-pkg
