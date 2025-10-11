@@ -1,0 +1,93 @@
+* up-doc.el
+
+A linter and collection of tool for maintaining ~use-package~ configurations in Emacs.
+It helps identify common issues, suggests improvements, and cleans up configurations.
+
+** Features
+
+- *Linting:* Analyzes ~use-package~ forms for common errors and stylistic issues.
+- *Cleanup:* Removes configurations (modes, hooks, etc.) added by ~use-package~.
+- *Utilities:* Provides tools for managing modes and hooks.
+
+** Installation
+
+1.  Place ~up-doc.el~ in a directory in your ~load-path~.
+2.  Add the following to your Emacs configuration:
+#+begin_src emacs-lisp
+(require 'up-doc)
+#+end_src
+
+** Interactive Functions
+
+*** ~up-doc-lint-buffer~
+Lint all ~use-package~ forms in the current buffer.
+
+- Scans the buffer for ~use-package~ forms and applies linting rules to each one.
+- Displays results in a dedicated buffer ~*up-doc results <buffer-name>*~, using ~compilation-mode~ for easy navigation.
+
+You can also use ~up-doc-lint~ to check only the ~use-package~ form at point. This will display warnings in the minibuffer.
+
+See [[Linter Rules]] for a list of defined rules.
+
+*** ~up-doc-cleanup~
+Remove additional configuration that ~use-package~ form may have added.
+Call it interactively with point at the form to cleanup.
+
+Unloads the feature, removes mode bindings, removes entries from ~load-path~, resets custom variables, and removes hooks.
+
+*** ~up-doc-list-missing-modes~
+List unbound targets of auto mode regexps.
+
+- Detects when ~use-package~ incorrectly guesses the mode name of a package.
+- Lists symbols in ~auto-mode-alist~ that are not fbound (i.e., functions that are not defined).
+
+*** ~up-doc-remove-auto-mode~
+Remove all entries for ~SYM~ from ~auto-mode-alist~.
+
+This can be useful if you had previously installed a mode that would trigger on certain files
+#+begin_src emacs-lisp
+(use-package foo
+  :mode "\\.foobar\\'" ;; if you open 123.foobar then foo-mode will be called
+  )
+#+end_src
+
+Once you remove package ~foo~ you may get errors when opening file ~123.foobar~, something like "foo-mode couldn't be found".
+
+In that case call ~up-doc-remove-auto-mode~ and type ~foo-mode~.
+
+This problem is fixed by ~up-doc-cleanup~.
+
+*** ~up-doc-remove-hook-at-point~
+Remove a single hook specified in a ~use-package~ ~:hook~ block.
+Point should be on a form like ~(hook-name . function-name)~.
+
+** Linter Rules
+
+The following linter rules are included:
+
+- ~ensure-redundant-with-global~: Warns when ~:ensure~ is redundant because it matches ~use-package-always-ensure~.
+- ~demand-redundant-with-global~: Warns when ~:demand t~ is redundant because ~use-package-always-demand~ is non-nil.
+- ~defer-implied-by-others~: Warns when ~:defer t~ is implied by other keywords like ~:commands~ or ~:mode~.
+- ~hook-inline-nested~: Suggests inlining nested ~:hook~ arguments for better readability.
+- ~hook-warn-lambdas~: Warns against using lambdas in ~:hook~ and suggests using ~defun~ instead.
+- ~hook-warn-double-hook~: Warns when a ~:hook~ symbol already has the ~-hook~ suffix.
+- ~add-hook-instead-of-hook~: Suggests using ~:hook~ instead of ~add-hook~ within ~:init~ or ~:config~.
+- ~custom-replace-set~: Suggests using ~:custom~ instead of ~setq~, ~setq-default~, or ~setopt~ for custom variables.
+- ~custom-symbol-exists~: Checks that symbols defined within ~:custom~ are real variables.
+
+** Customization
+
+You can customize the behavior of ~up-doc.el~ by modifying the ~up-doc-rules~ variable. This variable holds a list of rules, each with a name, documentation, and a function to execute.
+
+You can add new rules using the ~up-doc-rule~ macro:
+
+#+begin_src emacs-lisp
+(up-doc-rule my-new-rule
+    "Documentation for my new rule."
+  (when (some-condition package)
+    "Suggestion for my new rule."))
+#+end_src
+
+** Contributing
+
+Contributions are welcome! Please submit bug reports and pull requests on GitHub.
