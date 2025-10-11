@@ -353,12 +353,18 @@ This can detect cases where use-package incorrectly guesses the mode name of a p
                              auto-mode-alist))
     (pop-to-buffer (current-buffer))))
 
-(defun up-doc-remove-auto-mode (sym)
-  "Remove all entries for SYM from `auto-mode-alist'."
+(defun up-doc-remove-auto-mode (sym &optional other-alist)
+  "Remove all entries for SYM from `auto-mode-alist'.
+
+If OTHER-ALIST is a symbol, then remove SYM from there instead.
+This can be used for example, with `magic-mode-alist':
+  (up-doc-remove-auto-mode 'foo 'magic-mode-alist)
+"
   (interactive "s")
   (when (stringp sym)
     (setq sym (intern sym)))
-  (setq auto-mode-alist (rassq-delete-all sym auto-mode-alist)))
+  (let ((the-list (or other-alist 'auto-mode-alist)))
+    (set the-list (rassq-delete-all sym auto-mode-alist))))
 
 (defun up-doc--autoloadable-p (symbol)
   "Whether SYMBOL can be or was once autoloaded."
