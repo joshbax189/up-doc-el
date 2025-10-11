@@ -81,6 +81,7 @@ The package name is available using the special keyword :package."
 
 (defun up-doc--normalize-mode-list (form-list mode-fn)
   "Convert :mode arguments FORM-LIST to `auto-mode-alist' format.
+
 MODE-FN is the function to use if none is explicitly given.
 It can be found by calling `use-package-as-mode'.
 
@@ -104,11 +105,19 @@ The result of this function will always be a list of forms."
         (up-doc--normalize-mode-list (car form-list) mode-fn)
       (error "Bad format for :mode list %S" form-list))))
 
+(defun up-doc--symbol-as-hook (symbol)
+  "Extend SYMBOL with `use-package-hook-name-suffix' unless present."
+  (if (or
+       (not use-package-hook-name-suffix)
+       (string-suffix-p use-package-hook-name-suffix (symbol-name symbol)))
+      symbol
+    (intern (concat (symbol-name symbol) use-package-hook-name-suffix))))
+
 ;; cf use-package-normalize/:hook
-;; TODO this does not change the names of the fns to -hook
-;; it probably should, e.g. (use-package blah :hook a b c) uses a-hook etc
 (defun up-doc--normalize-hook-list (form-list mode-fn)
   "Convert :hook arguments FORM-LIST to an alist of (hook . fn).
+
+All hook symbols will have `use-package-hook-name-suffix' appended.
 
 MODE-FN is the function to use if none is explicitly given.
 It can be found by calling `use-package-as-mode'.
@@ -132,11 +141,11 @@ The result of this function will always be a list of forms."
        (lambda (x)
          (cond
           ((symbolp x)
-           (list (cons x mode-fn)))
+           (list (cons (up-doc--symbol-as-hook x) mode-fn)))
           ((and (consp x) (not (proper-list-p x)))
            (if (symbolp (car x))
-               (list (cons (car x) (cdr x)))
-             (--map (cons it (cdr x)) (car x))))
+               (list (cons (up-doc--symbol-as-hook (car x)) (cdr x)))
+             (--map (cons (up-doc--symbol-as-hook it) (cdr x)) (car x))))
           ((listp x) (up-doc--normalize-hook-list x mode-fn))
           (t (error "Something went wrong processing %S" x))))
        form-list)
