@@ -45,6 +45,10 @@
 (defvar up-doc-rules nil
   "Defined linter rules.")
 
+(defgroup up-doc nil
+  "Lint your `use-package' forms."
+  :group 'use-package)
+
 (defun up-doc--form-to-plist (form)
   "Convert a use-package FORM to a plist indexed by `use-package-keywords'.
 The package name is available using the special keyword :package."
@@ -157,15 +161,26 @@ The result of this function will always be a list of forms."
   "Rule names in `up-doc-rules'."
   (-uniq (map-keys up-doc-rules)))
 
+(defun up-doc--rule-name-to-var (rule-name)
+  "Get the global var name for RULE-NAME."
+  (intern (concat "up-doc-rule--" (symbol-name rule-name))))
+
 (defmacro up-doc-rule (name docstring &rest body)
   "Declare a new linter rule.
+
 Within BODY the symbol `package' is bound to a plist containing all of the
 package's use-package keywords, as per `up-doc--form-to-plist'.
 BODY should return either nil or a string which will be shown as a linter
-suggestion."
+suggestion.
+
+This creates a new custom var with the name up-doc--<name> which, if nil, will
+skip rule evaluation for all forms."
   (declare (doc-string 2) (indent 2))
-  `(push '(,name . (:doc ,docstring :function (lambda (package) ,@body)))
-         up-doc-rules))
+  `(progn
+     (defcustom ,(up-doc--rule-name-to-var name) t
+       ,docstring :tag ,(format "Enable rule: %s" name) :type 'boolean :group 'up-doc)
+     (push '(,name . (:doc ,docstring :function (lambda (package) ,@body)))
+           up-doc-rules)))
 
 ;;;; Rules:
 (up-doc-rule ensure-redundant-with-global
@@ -295,7 +310,8 @@ suggestion."
 
     (dolist (r rules)
       (condition-case err
-          (when-let* ((rule (alist-get r up-doc-rules))
+          (when-let* ((_ (symbol-value (up-doc--rule-name-to-var r)))
+                      (rule (alist-get r up-doc-rules))
                       (result (funcall (plist-get rule :function) package)))
             (if (listp result)
                 (setq warnings (append result warnings))
