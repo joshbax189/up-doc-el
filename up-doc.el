@@ -471,6 +471,34 @@ This can be used for example, with `magic-mode-alist':
       ;; this fails silently
       (remove-hook hook fn))))
 
+(defun up-doc-package-info (package)
+  "Provide an overview of the load status of PACKAGE."
+  (interactive "s") ;; TODO complete with package names
+  (let* ((package-sym (intern package))
+         (autoloads (concat package "-autoloads"))
+         (location (locate-library package))
+         (is-loaded (featurep package-sym))
+         (autoload-objs (cdr (assoc-string (locate-library autoloads) load-history)))
+         (autoload-defuns (--mapcat (when (and (listp it) (eq (car it) 'defun)) (list (cdr it))) autoload-objs))
+         ;; currently loaded packages which require this package
+         (reverse-deps (-filter (-lambda ((file . loads))
+                                  (-find (lambda (x)
+                                           (and (listp x)
+                                                (eq (car x) 'require)
+                                                (equal (cdr x) package-sym)))
+                                         loads))
+                                load-history))
+         (reverse-deps (-map (lambda (x) (alist-get 'provide (cdr x))) reverse-deps)))
+    (with-current-buffer (get-buffer-create (format "*up-doc package info for %s*" package))
+      (erase-buffer)
+      (insert (format "location: %s\n" location))
+      (insert (format "loaded: %s\n" is-loaded))
+      (insert "autoloads:\n")
+      (--each (sort autoload-defuns) (insert (format " - %s\n" it)))
+      (insert "reverse deps:\n")
+      (--each (sort reverse-deps) (insert (format " - %s\n" it)))
+      (switch-to-buffer (current-buffer)))))
+
 (provide 'up-doc)
 
 ;;; up-doc.el ends here
