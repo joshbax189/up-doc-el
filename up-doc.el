@@ -256,32 +256,44 @@ skip rule evaluation for all forms."
     "Suggest using :hook instead of add-hook."
   (let (warnings)
     (dolist (place up-doc-code-like)
-      (-each (plist-get package place)
-        (-lambda ((form &as fn-head))
-          (when (eq fn-head 'add-hook)
-            (-let (((_ hook fn) form))
-              (push (format "Consider using :hook (%s . %s) instead of %s"
-                            ;; hook is 'some-hook i.e. (quote some-hook), so use eval here
-                            (string-remove-suffix use-package-hook-name-suffix (symbol-name (eval hook)))
-                            fn
-                            form)
-                    warnings))))))
+      (let ((code-forms (plist-get package place)))
+       (if (not (sequencep code-forms))
+           (push (format "Expected contents of %s to be sexps, got %s"
+                         place
+                         code-forms)
+                       warnings)
+         (-each code-forms
+           (-lambda ((form &as fn-head))
+             (when (eq fn-head 'add-hook)
+               (-let (((_ hook fn) form))
+                 (push (format "Consider using :hook (%s . %s) instead of %s"
+                               ;; hook is 'some-hook i.e. (quote some-hook), so use eval here
+                               (string-remove-suffix use-package-hook-name-suffix (symbol-name (eval hook)))
+                               fn
+                               form)
+                       warnings))))))))
     warnings))
 
 (up-doc-rule custom-replace-set
     "Suggest using :custom instead of setq, setq-default, or setopt."
   (let (warnings)
     (dolist (place up-doc-code-like)
-      (-each (plist-get package place)
-        (-lambda ((form &as fn-head v exp))
-          ;; TODO also consider (setq x v y v ...)?
-          (when (and (memq fn-head '(setq setq-default set-default setopt))
-                     (custom-variable-p v))
-            (push (format "Consider using :custom (%s . %s) instead of %s for custom variable"
-                          v
-                          exp
-                          form)
-                  warnings)))))
+      (let ((code-forms (plist-get package place)))
+        (if (not (sequencep code-forms))
+            (push (format "Expected contents of %s to be sexps, got %s"
+                         place
+                         code-forms)
+                       warnings)
+          (-each code-forms
+            (-lambda ((form &as fn-head v exp))
+              ;; TODO also consider (setq x v y v ...)?
+              (when (and (memq fn-head '(setq setq-default set-default setopt))
+                         (custom-variable-p v))
+                (push (format "Consider using :custom (%s . %s) instead of %s for custom variable"
+                              v
+                              exp
+                              form)
+                      warnings)))))))
     warnings))
 
 (up-doc-rule custom-symbol-exists
