@@ -201,7 +201,7 @@ skip rule evaluation for all forms."
 (up-doc-rule defer-implied-by-others
     ":defer t is implied by many other keywords."
   (when (equal (plist-get package :defer) t)
-    (when-let* ((defer-kw (seq-some (lambda (kw) (and (memq kw body) kw)) upd-defer-like)))
+    (when-let* ((defer-kw (seq-some (lambda (kw) (and (memq kw package) kw)) up-doc-defer-like)))
       (format ":defer t can be removed since %s implies deferred loading" defer-kw))))
 
 (up-doc-rule hook-inline-nested
