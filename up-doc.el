@@ -254,7 +254,7 @@ skip rule evaluation for all forms."
 
 (up-doc-rule add-hook-instead-of-hook
     "Suggest using :hook instead of add-hook."
-  (let (warnings)
+  (let (warnings hooks)
     (dolist (place up-doc-code-like)
       (let ((code-forms (plist-get package place)))
        (if (not (sequencep code-forms))
@@ -266,17 +266,17 @@ skip rule evaluation for all forms."
            (-lambda ((form &as fn-head))
              (when (eq fn-head 'add-hook)
                (-let (((_ hook fn) form))
-                 (push (format "Consider using :hook (%s . %s) instead of %s"
-                               ;; hook is 'some-hook i.e. (quote some-hook), so use eval here
-                               (string-remove-suffix use-package-hook-name-suffix (symbol-name (eval hook)))
-                               fn
-                               form)
-                       warnings))))))))
+                 ;; hook is 'some-hook i.e. (quote some-hook), so use eval here
+                 (push (cons (string-remove-suffix use-package-hook-name-suffix (symbol-name (eval hook))) fn) hooks))))))))
+    (when hooks
+      (push (format "Instead of calling add-hook, use\n  :hook\n%s"
+                    (string-join (-map (-lambda ((a . b)) (format "  (%s . %S)" a b)) hooks) "\n"))
+            warnings))
     warnings))
 
 (up-doc-rule custom-replace-set
     "Suggest using :custom instead of setq, setq-default, or setopt."
-  (let (warnings)
+  (let (warnings custom-forms)
     (dolist (place up-doc-code-like)
       (let ((code-forms (plist-get package place)))
         (if (not (sequencep code-forms))
@@ -285,15 +285,15 @@ skip rule evaluation for all forms."
                          code-forms)
                        warnings)
           (-each code-forms
-            (-lambda ((form &as fn-head v exp))
+            (-lambda ((fn-head v exp))
               ;; TODO also consider (setq x v y v ...)?
               (when (and (memq fn-head '(setq setq-default set-default setopt))
                          (custom-variable-p v))
-                (push (format "Consider using :custom (%s . %s) instead of %s for custom variable"
-                              v
-                              exp
-                              form)
-                      warnings)))))))
+                (push (cons v exp) custom-forms)))))))
+    (when custom-forms
+     (push (format "Instead of setting these variables individually, use\n  :custom\n%s"
+                   (string-join (-map (-lambda ((a . b)) (format "  (%s . %S)" a b)) custom-forms) "\n"))
+           warnings))
     warnings))
 
 (up-doc-rule custom-symbol-exists
