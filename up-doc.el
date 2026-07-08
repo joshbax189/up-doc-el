@@ -320,6 +320,13 @@ skip rule evaluation for all forms."
         (warnings '())
         (rules (up-doc--rule-names)))
 
+    ;; warn if not loaded
+    (let ((package-name (plist-get package :package)))
+      (unless (featurep package-name)
+        (push (format "%s is not currently loaded, some warnings may not apply."
+                      package-name)
+              warnings)))
+
     (dolist (r rules)
       (condition-case err
           (when-let* ((_ (symbol-value (up-doc--rule-name-to-var r)))

@@ -145,8 +145,10 @@
 (ert-deftest up-doc-lint/test-2 ()
   "Tests linting."
   ;; originally to test a mode regex rule
-  (should-not (up-doc-lint '(use-package graphql-mode
-                              :mode ("\\.gql\\'" "\\.graphql\\'" )))))
+  (with-mock
+    (mock (featurep 'graphql-mode) => t)
+    (should-not (up-doc-lint '(use-package graphql-mode
+                                :mode ("\\.gql\\'" "\\.graphql\\'" ))))))
 
 (ert-deftest up-doc-lint/test-3 ()
   "Tests linting."
@@ -162,21 +164,23 @@
                           ("fren3" . fren-mode)))))
 
 (ert-deftest up-doc-lint/test-hook-structure ()
-  "Tests linting."
-  ;; hook rule should not trigger on this one
-  (let ((use-package-hook-name-suffix nil))
+  "Tests hook nesting rule."
+  (with-mock
+   (mock (featurep 'fren) => t)
+   (let ((use-package-hook-name-suffix nil))
 
-   (should-not (up-doc-lint '(use-package fren
-                               :hook
-                               ((a-hook b-hook c-hook) . fn)
-                               (x-hook . fn))))
-   (should (equal (up-doc-lint '(use-package fren
-                            :straight nil
-                            :hook
-                            ;; unnecessary nesting
-                            ((a-hook . fn)
-                             (x-hook . fn))))
-                  '("consider inlining contents of :hook keyword to reduce nesting")))))
+     ;; hook rule should not trigger on this one
+     (should-not (up-doc-lint '(use-package fren
+                                 :hook
+                                 ((a-hook b-hook c-hook) . fn)
+                                 (x-hook . fn))))
+     (should (equal (up-doc-lint '(use-package fren
+                                    :straight nil
+                                    :hook
+                                    ;; unnecessary nesting
+                                    ((a-hook . fn)
+                                     (x-hook . fn))))
+                    '("consider inlining contents of :hook keyword to reduce nesting"))))))
 
 (ert-deftest up-doc-lint/test-5 ()
   "Should suggest adding :hook."
@@ -375,4 +379,13 @@ _C-n_ext line  _a_ll              _R_efine               _C-z_: undo
          (up-doc-cleanup '(use-package blah))
          (should-not (member 'blah after-load-alist)))
      (setq after-load-alist original))))
+
+(ert-deftest up-doc-lint/test-load-warning ()
+  "Should warn when not loaded."
+  (should (equal '("fren is not currently loaded, some warnings may not apply.")
+            (up-doc-lint '(use-package fren))))
+  (with-mock
+    (mock (featurep 'fren) => t)
+    (should-not (up-doc-lint '(use-package fren)))))
+
 ;;; up-doc.test.el ends here
