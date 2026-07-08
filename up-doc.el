@@ -337,7 +337,7 @@ skip rule evaluation for all forms."
               (push result warnings)))
         (error (message "Error in rule %s:\n  %s" (symbol-name r) err))))
     ;; print results
-    (let ((result (nreverse warnings)))
+    (let ((result (-uniq (nreverse warnings))))
       (when (called-interactively-p 'any)
         (dolist (m result) (message "%s" m)))
       result)))

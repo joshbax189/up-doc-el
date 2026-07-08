@@ -237,6 +237,17 @@ _C-n_ext line  _a_ll              _R_efine               _C-z_: undo
                 (:map smerge-mode-map
                       ("C-c m" . smerge-hydra/body))))))
 
+(ert-deftest up-doc-lint/test-bad-config ()
+  "Should not report rule error when :config is empty."
+  (with-mock
+   (mock (featurep 'fren) => t)
+   ;; also, reports should be unique
+   (should (equal '("Expected contents of :init to be sexps, got t"
+                    "Expected contents of :config to be sexps, got t")
+                  (up-doc-lint '(use-package fren
+                                  :init t
+                                  :config))))))
+
 (ert-deftest up-doc-lint/test-custom ()
   "Tests custom var warning."
   (should (up-doc-lint '(use-package foo :init (setq use-package-hook-name-suffix 1) (setq foo-2 2) (message "hi")))))
