@@ -303,13 +303,13 @@ skip rule evaluation for all forms."
           (customs (plist-get package :custom)))
       (-each customs
         (-lambda ((v))
-          ;; TODO can try to fuzzy match known symbol
           (unless (boundp v)
             (push (format "variable %s is not yet defined" v) warnings))
           (when (get v 'byte-obsolete-variable)
             (push (format "variable %s is obsolete" v) warnings))))
       warnings)))
 
+;;;###autoload
 (defun up-doc-lint (form)
   "Lint a use-package FORM for common issues."
   (interactive (let ((f (read (thing-at-point 'sexp))))
@@ -342,6 +342,7 @@ skip rule evaluation for all forms."
         (dolist (m result) (message "%s" m)))
       result)))
 
+;;;###autoload
 (defun up-doc-lint-buffer ()
   "Lint `use-package' forms in the current buffer."
   (interactive)
@@ -371,8 +372,8 @@ skip rule evaluation for all forms."
                 (dolist (m results)
                   (insert (format "- %s\n" m)))))))
         (forward-sexp)))
-   (pop-to-buffer up-doc-results)
-   (with-current-buffer up-doc-results (compilation-mode))))
+    (pop-to-buffer up-doc-results)
+    (with-current-buffer up-doc-results (compilation-mode))))
 
 (require 'compile)
 (add-to-list 'compilation-error-regexp-alist-alist '(up-doc . ("\\([[:word:]]+.el\\):\\([[:digit:]]+\\):" 1 2 nil 1)))
@@ -380,6 +381,7 @@ skip rule evaluation for all forms."
 
 ;;;; Tools:
 
+;;;###autoload
 (defun up-doc-list-missing-modes ()
   "List unbound targets of auto mode regexps.
 This can detect when use-package incorrectly guesses the mode name of a package."
@@ -392,6 +394,7 @@ This can detect when use-package incorrectly guesses the mode name of a package.
                              auto-mode-alist))
     (pop-to-buffer (current-buffer))))
 
+;;;###autoload
 (defun up-doc-remove-auto-mode (sym &optional other-alist)
   "Remove all entries for SYM from `auto-mode-alist'.
 
@@ -416,6 +419,7 @@ This can be used for example, with `magic-mode-alist':
    ;; functions loaded by autoload
    (seq-some 'autoloadp (function-get symbol 'function-history))))
 
+;;;###autoload
 (defun up-doc-cleanup (form)
   "Remove additional configuration that `use-package' FORM may have added."
   (interactive (let ((f (sexp-at-point)))
@@ -438,16 +442,16 @@ This can be used for example, with `magic-mode-alist':
         (dolist (m mode-syms)
           (message "removing %s binding for %s" type m)
           (pcase type
-           (:mode (up-doc-remove-auto-mode m))
-           (:magic (up-doc-remove-auto-mode m 'magic-mode-alist))
-           (:magic-fallback (up-doc-remove-auto-mode m 'magic-fallback-mode-alist))
-           (:interpreter (up-doc-remove-auto-mode m 'interpreter-mode-alist))))))
+            (:mode (up-doc-remove-auto-mode m))
+            (:magic (up-doc-remove-auto-mode m 'magic-mode-alist))
+            (:magic-fallback (up-doc-remove-auto-mode m 'magic-fallback-mode-alist))
+            (:interpreter (up-doc-remove-auto-mode m 'interpreter-mode-alist))))))
 
     ;; load-path
     (when-let* ((paths (plist-get form-plist :load-path)))
       (dolist (path paths)
-       (message "removing %s from load-path" path)
-       (setq load-path (delete path load-path))))
+        (message "removing %s from load-path" path)
+        (setq load-path (delete path load-path))))
 
     ;; autoloads
     (let ((autoload-sym (intern (concat (symbol-name package) "-autoloads"))))
@@ -481,16 +485,17 @@ This can be used for example, with `magic-mode-alist':
     ;; but it is likely these are created by the package itself, not use-package
     (message "removing entries from after-load-alist")
     (let ((package-file (concat (symbol-name package) ".el")))
-     (setq after-load-alist
-           (seq-remove (-lambda ((re . _))
-                         (cond
-                          ;; remove (regex . some-fn) where regex matches package.el, package.elc etc
-                          ((stringp re) (string-match-p re package-file))
-                          ;; remove entries like (package . some-fn)
-                          ((symbolp re) (equal package re))
-                          (t nil)))
-                       after-load-alist)))))
+      (setq after-load-alist
+            (seq-remove (-lambda ((re . _))
+                          (cond
+                           ;; remove (regex . some-fn) where regex matches package.el, package.elc etc
+                           ((stringp re) (string-match-p re package-file))
+                           ;; remove entries like (package . some-fn)
+                           ((symbolp re) (equal package re))
+                           (t nil)))
+                        after-load-alist)))))
 
+;;;###autoload
 (defun up-doc-remove-hook-at-point ()
   "Remove a hook specified in a `use-package' :hook block."
   (interactive)
