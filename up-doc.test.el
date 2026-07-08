@@ -133,6 +133,28 @@
                    (d-hook . bar-mode)
                    (e-hook . bar-mode)))))
 
+(ert-deftest up-doc--find-owning-package/test-autoload ()
+  "When symbol is defined as an autoload."
+  (unwind-protect
+      (progn
+        (setf (symbol-function 'foo-bar-func) '(autoload "foo" nil))
+        (should (equal 'foo (up-doc--find-owning-package 'foo-bar-func))))
+    (fmakunbound 'foo-bar-func)))
+
+(ert-deftest up-doc--find-owning-package/test-loaded ()
+  "When SYMBOL's package info exists in `load-history'."
+  (should (equal 'ert (up-doc--find-owning-package 'ert-deftest))))
+
+(ert-deftest up-doc--find-owning-package/test-prefix-match ()
+  "When symbol matches string prefix of known library name."
+  (with-mock
+    (mock (up-doc--known-libraries) => '("foo"))
+    (should (equal 'foo (up-doc--find-owning-package 'foo-bar-func)))))
+
+(ert-deftest up-doc--find-owning-package/test-unknown ()
+  "Symbol undefined or unrecognized returns nil."
+  (should-not (up-doc--find-owning-package 'blah)))
+
 (ert-deftest up-doc-lint/test-1 ()
   "Tests linting."
   (should (up-doc-lint '(use-package foo-pkg

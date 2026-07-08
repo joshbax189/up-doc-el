@@ -165,6 +165,37 @@ The result of this function will always be a list of forms."
   "Get the global var name for RULE-NAME."
   (intern (concat "up-doc-rule--" (symbol-name rule-name))))
 
+(defun up-doc--known-libraries ()
+  "Get a list of loadable library names (strings)."
+  (require 'find-func)
+  (read-library-name--find-files load-path (find-library-suffixes)))
+
+(defun up-doc--find-owning-package (symbol)
+  "Try to find the package that defines SYMBOL.
+Returns package name as a symbol or nil.
+
+If SYMBOL is defined by a file which does not provide a feature,
+returns nil."
+  (if (autoloadp (symbol-function symbol))
+      ;; then symbol-function is like '(autoload "package" <docstring>)
+      (intern (cadr (symbol-function symbol)))
+    ;; otherwise search load-history
+    (if-let* ((provides-alist
+               (cdr (-first (-lambda ((_package . provided))
+                              (--some (if (symbolp it)
+                                          (equal it symbol)
+                                        (equal (cdr it) symbol))
+                                     provided))
+                            load-history))))
+        (alist-get 'provide provides-alist)
+      ;; symbol may be a regular function in a known library that is not yet loaded...
+      ;; try prefix-matching known libraries
+      (when-let* ((package-name
+                   (--first
+                    (string-prefix-p it (symbol-name symbol))
+                    (up-doc--known-libraries))))
+        (intern package-name)))))
+
 (defmacro up-doc-rule (name docstring &rest body)
   "Declare a new linter rule.
 
