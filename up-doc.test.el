@@ -27,7 +27,6 @@
 
 (ert-deftest up-doc--form-to-plist/test-single-form ()
   "Keywords with a single form or atom should wrap that in a list."
-  ;; TODO perhaps it's better to normalise these somehow?
   (should (equal (up-doc--form-to-plist '(use-package graphql-mode :mode ("\\.gql\\'" "\\.graphql\\'" )))
                  '(:package graphql-mode :mode (("\\.gql\\'" "\\.graphql\\'" )))))
   (should (equal (up-doc--form-to-plist '(use-package graphql-mode :mode "\\.gql\\'"))
@@ -268,7 +267,8 @@ _C-n_ext line  _a_ll              _R_efine               _C-z_: undo
       (with-mock
         (stub unload-feature)
         (add-to-list 'auto-mode-alist '("\\foo\\" . blah))
-        ;; TODO (use-package-as-mode) says blah-mode, but use-package actually uses just blah
+        (add-to-list 'auto-mode-alist '("\\foo\\" . blah-mode))
+        ;; (use-package-as-mode 'blah) = blah-mode, but use-package actually adds blah to auto-mode-alist
         (up-doc-cleanup '(use-package blah :mode "\\foo\\"))
         (should-not (assoc-string "\\foo\\" auto-mode-alist)))
     (setq auto-mode-alist (rassq-delete-all 'blah auto-mode-alist))))
