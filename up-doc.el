@@ -340,6 +340,48 @@ skip rule evaluation for all forms."
             (push (format "variable %s is obsolete" v) warnings))))
       warnings)))
 
+(defun up-doc--top-level-suggest (form)
+  "Maybe suggest moving FORM into a use-package form.
+Returns a possibly empty list of string warnings."
+  ;; TODO if the target functions in e.g. hook or key bindings are not loaded, then the defining package isn't going to be found...
+  ;; could fix by heurstic checking 1. load-history, 2. autoloads, 3. prefix matching known libraries
+  ;; TODO provide a way to disable these warnings too: like for other rules, and inline in a file
+  (pcase (car form)
+    ('add-hook
+     (-let [(_ hook-name hook-fn) form]
+       (list (format "Consider adding %s to hook %s in a use-package form for %s" hook-fn hook-name (or (up-doc--find-owning-package hook-fn) "'emacs")))))
+    ;; custom vars
+    ((or 'setq 'setq-default 'setopt)
+     (let ((pairs (-partition 2 (cdr form))))
+       (-map (-lambda ((var _val)) (format "Consider assigning %s in a :custom block of use-package form for %s" var (or (up-doc--find-owning-package var) "'emacs"))) pairs)))
+    ('add-to-list
+     (-let [(_ var _elt) form]
+       (list (format "Consider assigning %s within a use-package form for %s" var (or (up-doc--find-owning-package var) "'emacs"))))) ;; TODO where :init or :config?
+    ('customize-set-variable
+     (-let [(_ var _elt) form]
+       (list (format "Consider assigning %s within a use-package form for %s" var (or (up-doc--find-owning-package var) "'emacs")))))
+    ('custom-set-variables
+     (-map (-lambda ((var _val)) ;; TODO may be quoted
+             (unless (memq var '(package-selected-packages))
+               (format "Consider assigning %s in a :custom block of use-package form for %s" var (or (up-doc--find-owning-package var) "'emacs"))))
+           (cdr form)))
+    ;; binds
+    ('global-set-key
+     (-let [(_ (_ key-string) key-fn) form]
+       (list (format "Consider adding binding %s to use-package form for %s" key-string (or (up-doc--find-owning-package key-fn) "'emacs")))))
+    ('keymap-global-set) ;; TODO
+    ('require
+     (-let [(_ (_ package)) form]
+       (list (format "Consider replacing require form with (use-package %s :demand)" package))))
+    ('eval-after-load
+        (-let [(_ feat) form]
+          (unless (string-match-p ".+\\..+" feat)
+            (list (format "Consider moving code from eval-after-load to :config in use-package form for %s" feat)))))
+    ;; mode invocations and other autoloaded symbols
+    (fn
+     (when (up-doc--autoloadable-p fn)
+       (list (format "Consider moving %s to use-package :init for %s" form (or (up-doc--find-owning-package fn) "'emacs")))))))
+
 ;;;###autoload
 (defun up-doc-lint (form)
   "Lint a use-package FORM for common issues."
@@ -388,12 +430,11 @@ skip rule evaluation for all forms."
       (forward-sexp)
       (while (< (point) (point-max))
         (when-let* ((current-form (sexp-at-point))
-                    (_ (equal 'use-package (car current-form)))
                     ;; this is at the end of the form!
                     (line (progn (backward-sexp) (line-number-at-pos))))
           (forward-sexp)
           ;; TODO store marker etc here
-          (when-let* ((results (up-doc-lint current-form)))
+          (when-let* ((results (if (equal 'use-package (car current-form)) (up-doc-lint current-form) (up-doc--top-level-suggest current-form))))
             (with-current-buffer up-doc-results
               (let ((inhibit-read-only t))
                 (insert (format "%s:%s: in %s:\n"
