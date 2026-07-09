@@ -210,7 +210,8 @@ skip rule evaluation for all forms."
   `(progn
      (defcustom ,(up-doc--rule-name-to-var name) t
        ,docstring :tag ,(format "Enable rule: %s" name) :type 'boolean :group 'up-doc)
-     (push '(,name . (:doc ,docstring :function (lambda (package) ,@body)))
+     ;; TODO don't need this plist anymore now that docstring is merged
+     (push '(,name . (:doc ,docstring :function (lambda (package) ,docstring ,@body)))
            up-doc-rules)))
 
 ;;;; Rules:
@@ -610,6 +611,36 @@ This can be used for example, with `magic-mode-alist':
       (insert "reverse deps:\n")
       (--each (sort reverse-deps) (insert (format " - %s\n" it)))
       (switch-to-buffer (current-buffer)))))
+
+(defun up-doc-describe-rule (rule)
+  "Display the documentation for RULE."
+  (interactive (list (intern (completing-read "rule:" (map-keys up-doc-rules)))))
+
+  ;; We save describe-function-orig-buffer on the help xref stack, so
+  ;; it is restored by the back/forward buttons.  'help-buffer'
+  ;; expects (current-buffer) to be a help buffer when processing
+  ;; those buttons, so we can't change the current buffer before
+  ;; calling that.
+  (let ((describe-function-orig-buffer
+         (or describe-function-orig-buffer
+             (current-buffer)))
+        (help-buffer-under-preparation t)
+        (function (plist-get (alist-get rule up-doc-rules) :function)))
+
+    (help-setup-xref (list #'describe-function--helper
+                           rule describe-function-orig-buffer)
+                     (called-interactively-p 'interactive))
+
+    (save-excursion
+      (with-help-window (help-buffer)
+        (prin1 rule)
+        ;; Use " is " instead of a colon so that
+        ;; it is easier to get out the function name using forward-sexp.
+        (princ " is ")
+        (describe-function-1 function)
+        (with-current-buffer standard-output
+          (help-fns--setup-xref-backend)
+          (buffer-string))))))
 
 (provide 'up-doc)
 
