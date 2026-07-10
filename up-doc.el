@@ -445,7 +445,8 @@ Returns a possibly empty list of string warnings."
 (defun up-doc-lint-buffer ()
   "Lint `use-package' forms in the current buffer."
   (interactive)
-  (let* ((filename (file-name-nondirectory (buffer-file-name)))
+  (let* ((filename (buffer-file-name))
+         (filename (if filename (file-name-nondirectory (buffer-file-name)) "<no file>"))
          (up-doc-results (get-buffer-create (format "*up-doc results %s*" filename))))
     (with-current-buffer up-doc-results
       (let ((inhibit-read-only t))
