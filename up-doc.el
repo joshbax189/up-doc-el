@@ -210,9 +210,11 @@ skip rule evaluation for all forms."
   `(progn
      (defcustom ,(up-doc--rule-name-to-var name) t
        ,docstring :tag ,(format "Enable rule: %s" name) :type 'boolean :group 'up-doc)
-     ;; TODO don't need this plist anymore now that docstring is merged
-     (push '(,name . (:doc ,docstring :function (lambda (package) ,docstring ,@body)))
-           up-doc-rules)))
+     ;; keeping the plist format since there may be more metadata later
+     (add-to-list 'up-doc-rules
+                  '(,name . (:doc ,docstring :function (lambda (package) ,docstring ,@body)))
+                  nil
+                  (lambda (x y) (eq (car x) (car y))))))
 
 ;;;; Rules:
 (up-doc-rule ensure-redundant-with-global
