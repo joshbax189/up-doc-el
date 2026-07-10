@@ -27,7 +27,7 @@ Lint all ~use-package~ forms in the current buffer.
 
 You can also use ~up-doc-lint~ to check only the ~use-package~ form at point. This will display warnings in the minibuffer.
 
-See [[Linter Rules]] for a list of defined rules.
+See [[Linter Rules][Linter Rules]] for a list of defined rules.
 
 *** ~up-doc-cleanup~
 Remove additional configuration that ~use-package~ form may have added.
@@ -47,8 +47,7 @@ Remove all entries for ~SYM~ from ~auto-mode-alist~.
 This can be useful if you had previously installed a mode that would trigger on certain files
 #+begin_src emacs-lisp
 (use-package foo
-  :mode "\\.foobar\\'" ;; if you open 123.foobar then foo-mode will be called
-  )
+  :mode "\\.foobar\\'") ;; if you open 123.foobar then foo-mode will be called
 #+end_src
 
 Once you remove package ~foo~ you may get errors when opening file ~123.foobar~, something like "foo-mode couldn't be found".
@@ -75,9 +74,11 @@ The following linter rules are included:
 - ~custom-replace-set~: Suggests using ~:custom~ instead of ~setq~, ~setq-default~, or ~setopt~ for custom variables.
 - ~custom-symbol-exists~: Checks that symbols defined within ~:custom~ are real variables.
 
+View more detailed documentation for each rule using the function ~up-doc-describe-rule~ and selecting the rule name.
+
 ** Customization
 
-You can customize the behavior of ~up-doc.el~ by modifying the ~up-doc-rules~ variable. This variable holds a list of rules, each with a name, documentation, and a function to execute.
+Each rule can be individually enabled or disabled from the customization menu: just do ~customize-group~ and select ~up-doc~.
 
 You can add new rules using the ~up-doc-rule~ macro:
 
@@ -87,6 +88,8 @@ You can add new rules using the ~up-doc-rule~ macro:
   (when (some-condition package)
     "Suggestion for my new rule."))
 #+end_src
+
+More details are in the documentation for that function.
 
 ** Contributing
 
