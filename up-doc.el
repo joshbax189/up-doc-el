@@ -49,6 +49,10 @@
   "Lint your `use-package' forms."
   :group 'use-package)
 
+(defcustom up-doc-load-before-check nil "Load packages before applying linter rules."
+  :group 'up-doc
+  :type 'boolean)
+
 (defun up-doc--form-to-plist (form)
   "Convert a use-package FORM to a plist indexed by `use-package-keywords'.
 The package name is available using the special keyword :package."
@@ -494,9 +498,16 @@ Returns a possibly empty list of string warnings."
     ;; warn if not loaded
     (let ((package-name (plist-get package :package)))
       (unless (featurep package-name)
-        (push (format "%s is not currently loaded, some warnings may not apply."
-                      package-name)
-              warnings)))
+        (if up-doc-load-before-check
+            (condition-case err
+                (load-library (symbol-name package-name))
+              (error
+               (message "up-doc: failed loading %s got error %S" package-name err)
+               (push (format "%s failed to load." package-name)
+                     warnings)))
+            (push (format "%s is not currently loaded, some warnings may not apply."
+                          package-name)
+                  warnings))))
 
     (dolist (r rules)
       (condition-case err

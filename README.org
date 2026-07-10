@@ -76,6 +76,11 @@ The following linter rules are included:
 
 View more detailed documentation for each rule using the function ~up-doc-describe-rule~ and selecting the rule name.
 
+Many rules depend on the package being loaded before linting. For example, to check if functions or variables are
+really defined by the package.
+If you set ~up-doc-load-before-check~ to ~t~, the package will be loaded before applying any rules. This gives more
+complete coverage. However, it will also likely take a while...
+
 ** Customization
 
 Each rule can be individually enabled or disabled from the customization menu: just do ~customize-group~ and select ~up-doc~.
