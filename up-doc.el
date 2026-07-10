@@ -218,8 +218,14 @@ skip rule evaluation for all forms."
 
 ;;;; Rules:
 (up-doc-rule ensure-redundant-with-global
-    "Keyword :ensure has no effect if it matches the value of `use-package-always-ensure'."
-    ;; if quelpa or straight is present, how does that effect things?
+    "Keyword :ensure has no effect if it matches the value of `use-package-always-ensure'.
+
+Bad example:
+  (customize-set-value use-package-always-ensure t)
+  (use-package foo
+     :ensure)
+"
+    ;; TODO if quelpa or straight is present, how does that effect things?
     ;; I assume straight-ensure => always ensure, so do the same?
   (let ((form-value (plist-get package :ensure)))
     (when (and (equal use-package-always-ensure form-value)
@@ -227,19 +233,46 @@ skip rule evaluation for all forms."
       (format ":ensure %s is redundant when use-package-always-ensure is %s." form-value use-package-always-ensure))))
 
 (up-doc-rule demand-redundant-with-global
-    ":demand t has no effect if `use-package-always-demand' is also t."
+    "Setting :demand t has no effect if `use-package-always-demand' is also t.
+
+Bad example:
+  (customize-set-value use-package-always-demand t)
+  (use-package foo
+     :demand)"
   (when (and use-package-always-demand
              (plist-get package :demand))
     ":demand t is redundant when use-package-always-demand is non-nil."))
 
 (up-doc-rule defer-implied-by-others
-    ":defer t is implied by many other keywords."
+    "Keyword :defer is implied by many other keywords.
+
+Bad example
+  (use-package foo
+     :defer t
+     :hook
+     (prog-mode . foo-mode)) ;; this makes foo deferred
+"
   (when (equal (plist-get package :defer) t)
     (when-let* ((defer-kw (seq-some (lambda (kw) (and (memq kw package) kw)) up-doc-defer-like)))
       (format ":defer t can be removed since %s implies deferred loading" defer-kw))))
 
+;; TODO this is a general rule that applies to most keywords
 (up-doc-rule hook-inline-nested
-    "Complain if :hook argument is of the form '((x-hook . fn) (y-hook . fn) ...)."
+    "Arguments to keywords are assumed to be a list of cons cells.
+This list does not need to be explicitly written.
+
+Bad example
+  (use-package foo
+    :hook
+    ((x-hook . fn)
+     (y-hook . fn)))
+
+Good example
+  (use-package foo
+    :hook
+    (x-hook . fn)
+    (y-hook . fn))
+"
   (-when-let* ((hooks (plist-get package :hook))
                (_ (eq 1 (proper-list-p hooks))) ;; nil if a dotted cons
                (_ (proper-list-p (car hooks)))
@@ -249,7 +282,27 @@ skip rule evaluation for all forms."
     (format "consider inlining contents of :hook keyword to reduce nesting")))
 
 (up-doc-rule hook-warn-lambdas
-    "Complain if :hook takes a lambda."
+    "Hooks should be named functions rather than anonymous lambdas.
+This makes it easier to modify or delete the function later.
+See Info node `(emacs) Hooks'.
+
+New defuns can be added to either :init, :config or at the top-level
+of the init file depending on whether the defun requires the package
+to be loaded or not.
+
+Bad example:
+  (use-package foo
+     :hook
+     (foo-mode-hook . (lambda () (message \"foo-mode enabled\"))))
+
+Good example:
+  (use-package foo
+     :hook
+     (foo-mode-hook . my-foo-notification)
+     :init
+     (defun my-foo-notification ()
+       (message \"foo-mode enabled\")))
+"
   ;; hook can be
   ;; 1. a symbol -- skip
   ;; 2. a cons, looks like '((x-hook . fn))
@@ -267,7 +320,20 @@ skip rule evaluation for all forms."
       (format "hooks for symbols %s should use defuns instead of lambdas" bad-hooks))))
 
 (up-doc-rule hook-warn-double-hook
-    "Complain if a :hook symbol has suffix -hook."
+    "Symbols in :hook argument should not have suffix -hook.
+
+Bad Example
+  (use-package foo
+    :hook
+    prog-mode-hook ;; expands to (add-hook prog-mode-hook-hook foo-mode-hook)
+    (prog-mode-hook . foo-mode)) ;; same as above
+
+Good Example
+  (use-package foo
+    :hook
+    prog-mode
+    (prog-mode . foo-mode)) ;; same effect
+"
   ;; hook can be
   ;; 1. a symbol
   ;; 2. a list of cons, looks like '((x-hook . fn) ...)
@@ -287,7 +353,8 @@ skip rule evaluation for all forms."
       (format "hooks %s should not end in default suffix %s" bad-hooks use-package-hook-name-suffix))))
 
 (up-doc-rule add-hook-instead-of-hook
-    "Suggest using :hook instead of add-hook."
+    "Suggest using :hook instead of add-hook.
+Keeping similar logic together eases maintenance."
   (let (warnings hooks)
     (dolist (place up-doc-code-like)
       (let ((code-forms (plist-get package place)))
@@ -309,7 +376,9 @@ skip rule evaluation for all forms."
     warnings))
 
 (up-doc-rule custom-replace-set
-    "Suggest using :custom instead of setq, setq-default, or setopt."
+    "Suggest using :custom instead of `setq', `setq-default', or `setopt'.
+Using the :custom keyword allows disabling related settings together and
+allows recording reasons alongside the assignments."
   (let (warnings custom-forms)
     (dolist (place up-doc-code-like)
       (let ((code-forms (plist-get package place)))
@@ -331,7 +400,8 @@ skip rule evaluation for all forms."
     warnings))
 
 (up-doc-rule custom-symbol-exists
-    "Check that symbols are real variables."
+    "Check that symbols are real variables and not obsolete.
+If the package is not loaded, this may give false positives."
   (when (featurep (plist-get package :package))
     (let ((warnings nil)
           (customs (plist-get package :custom)))
