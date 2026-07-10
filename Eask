@@ -9,10 +9,12 @@
 
 (package-file "up-doc.el")
 
-(script "test" "echo \"Error: no test specified\" && exit 1")
+(script "test" "eask test ert test/up-doc.test.el")
 
 (source "gnu")
 (source "melpa")
 
 (depends-on "emacs" "29.1")
 (depends-on "dash" "2.20.0")
+(development
+ (depends-on "el-mock" "1.25.1"))
