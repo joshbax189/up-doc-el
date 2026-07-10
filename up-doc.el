@@ -432,7 +432,7 @@ Returns a possibly empty list of string warnings."
     ;; custom vars
     ((or 'setq 'setq-default 'setopt)
      (let* ((pairs (-partition 2 (cdr form)))
-            (package (or (up-doc--find-owning-package (car (car pairs))) "'emacs")))
+            (package (or (up-doc--find-owning-package (car (car pairs))) "emacs")))
        ;; TODO this assumes all vars are the same package
        (list (format "Move top-level assignment into a use-package form\n  (use-package %s\n    :custom\n    %s)"
                      package
@@ -447,7 +447,7 @@ Returns a possibly empty list of string warnings."
                      form
                      (or (up-doc--find-owning-package var) "emacs")))))
     ('customize-set-variable
-     (-let [(_ var elt) form]
+     (-let [(_ (_ var) elt) form]
        (list (format "Move top-level assignment into a use-package form\n  (use-package %s\n    :custom\n    (%s . %s))"
                      (or (up-doc--find-owning-package var) "emacs")
                      var
