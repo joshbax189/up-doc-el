@@ -453,12 +453,13 @@ Returns a possibly empty list of string warnings."
                      (or (up-doc--find-owning-package var) "emacs")
                      var
                      elt))))
-    ('custom-set-variables
-     (-map (-lambda ((var _val)) ;; TODO may be quoted
+    ('custom-set-variables ;; &rest '(SYMBOL VAL ...)
+     (-map (-lambda ((_quote (var val)))
              (unless (memq var '(package-selected-packages))
                (format "Move top-level assignment into a use-package form\n  (use-package %s\n    :custom\n    (%s . %s))"
                        (or (up-doc--find-owning-package var) "emacs")
-                       var)))
+                       var
+                       val)))
            (cdr form)))
     ;; binds
     ('global-set-key

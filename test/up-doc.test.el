@@ -155,6 +155,13 @@
   "Symbol undefined or unrecognized returns nil."
   (should-not (up-doc--find-owning-package 'blah)))
 
+(ert-deftest up-doc--top-level-suggest/test-custom-set-variables ()
+  "Test matching for `custom-set-variables' forms."
+  ;; this should return some warning and not signal
+  (should (up-doc--top-level-suggest '(custom-set-variables
+                                       '(foo 123 t ragged)
+                                       '(blah 405)))))
+
 (ert-deftest up-doc-lint/test-1 ()
   "Tests linting."
   (should (up-doc-lint '(use-package foo-pkg
