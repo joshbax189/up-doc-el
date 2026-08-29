@@ -53,6 +53,10 @@
   :group 'up-doc
   :type 'boolean)
 
+(defcustom up-doc-enable-top-level-suggest t "Suggest moving top-level forms into `use-package' forms."
+  :group 'up-doc
+  :type 'boolean)
+
 (defun up-doc--form-to-plist (form)
   "Convert a use-package FORM to a plist indexed by `use-package-keywords'.
 The package name is available using the special keyword :package."
@@ -424,7 +428,6 @@ If the package is not loaded, this may give false positives."
 (defun up-doc--top-level-suggest (form)
   "Maybe suggest moving FORM into a use-package form.
 Returns a possibly empty list of string warnings."
-  ;; TODO provide a way to disable these warnings too: like for other rules, and inline in a file
   (pcase (car form)
     ('add-hook
      (-let [(_ (_ hook-name) (_ hook-fn)) form]
@@ -549,7 +552,10 @@ Returns a possibly empty list of string warnings."
                     (line (progn (backward-sexp) (line-number-at-pos))))
           (forward-sexp)
           ;; TODO store marker etc here
-          (when-let* ((results (if (equal 'use-package (car current-form)) (up-doc-lint current-form) (up-doc--top-level-suggest current-form))))
+          (when-let* ((results (if (equal 'use-package (car current-form))
+                                   (up-doc-lint current-form)
+                                 (when up-doc-enable-top-level-suggest
+                                   (up-doc--top-level-suggest current-form)))))
             (with-current-buffer up-doc-results
               (let ((inhibit-read-only t))
                 (insert (format "%s:%s: in %s:\n"
