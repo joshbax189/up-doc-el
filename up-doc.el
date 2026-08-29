@@ -481,7 +481,7 @@ Returns a possibly empty list of string warnings."
        (list (format "Move top-level require into a use-package form\n (use-package %s :demand)" package))))
     ('eval-after-load
         (-let [(_ feat) form]
-          (unless (string-match-p ".+\\..+" feat)
+          (unless (and (stringp feat) (string-match-p ".+\\..+" feat)) ;; a relative file name
             (list (format "Move code from eval-after-load into a use-package form\n  (use-package %s\n    :config\n%S)"
                           feat
                           form)))))

@@ -137,13 +137,15 @@
   "When symbol is defined as an autoload."
   (unwind-protect
       (progn
-        (setf (symbol-function 'foo-bar-func) '(autoload "foo" nil))
+        (autoload 'foo-bar-func "foo")
         (should (equal 'foo (up-doc--find-owning-package 'foo-bar-func))))
     (fmakunbound 'foo-bar-func)))
 
 (ert-deftest up-doc--find-owning-package/test-loaded ()
   "When SYMBOL's package info exists in `load-history'."
-  (should (equal 'ert (up-doc--find-owning-package 'ert-deftest))))
+  (should (equal 'ert (up-doc--find-owning-package 'ert-deftest)))
+  ;; when the package name is also a function it can collide with requires
+  (should (equal 'ert (up-doc--find-owning-package 'ert))))
 
 (ert-deftest up-doc--find-owning-package/test-prefix-match ()
   "When symbol matches string prefix of known library name."
@@ -161,6 +163,12 @@
   (should (up-doc--top-level-suggest '(custom-set-variables
                                        '(foo 123 t ragged)
                                        '(blah 405)))))
+
+(ert-deftest up-doc--top-level-suggest/test-eval-after-load ()
+  "Test matching for `custom-set-variables' forms."
+  ;; this should return some warning and not signal
+  (should (up-doc--top-level-suggest '(eval-after-load foo
+                                       (foo 123 t ragged)))))
 
 (ert-deftest up-doc-lint/test-1 ()
   "Tests linting."
