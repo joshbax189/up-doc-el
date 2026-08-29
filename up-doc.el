@@ -389,15 +389,18 @@ allows recording reasons alongside the assignments."
       (let ((code-forms (plist-get package place)))
         (if (not (sequencep code-forms))
             (push (format "Expected contents of %s to be sexps, got %s"
-                         place
-                         code-forms)
-                       warnings)
+                          place
+                          code-forms)
+                  warnings)
           (-each code-forms
-            (-lambda ((fn-head v exp))
-              ;; TODO also consider (setq x v y v ...)?
+            (-lambda ((fn-head v exp . rest))
               (when (and (memq fn-head '(setq setq-default set-default setopt))
                          (custom-variable-p v))
-                (push (cons v exp) custom-forms)))))))
+                (push (cons v exp) custom-forms)
+                ;; for (setq x v y v ...)
+                (when rest
+                  (dolist (pair (seq-split rest 2))
+                    (push (cons (car pair) (cadr pair)) custom-forms)))))))))
     (when custom-forms
      (push (format "Instead of setting these variables individually, use\n  :custom\n%s"
                    (string-join (-map (-lambda ((a . b)) (format "  (%s . %S)" a b)) custom-forms) "\n"))
