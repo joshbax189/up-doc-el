@@ -216,7 +216,7 @@
                                     ;; unnecessary nesting
                                     ((a-hook . fn)
                                      (x-hook . fn))))
-                    '("consider inlining contents of :hook keyword to reduce nesting"))))))
+                    '("consider inlining contents of :hook keyword to reduce nesting\n  rule:hook-inline-nested"))))))
 
 (ert-deftest up-doc-lint/test-5 ()
   "Should suggest adding :hook."
@@ -278,8 +278,10 @@ _C-n_ext line  _a_ll              _R_efine               _C-z_: undo
   (with-mock
    (mock (featurep 'fren) => t)
    ;; also, reports should be unique
-   (should (equal '("Expected contents of :init to be sexps, got t"
-                    "Expected contents of :config to be sexps, got t")
+   (should (equal '("Expected contents of :init to be sexps, got t\n  rule:custom-replace-set"
+                    "Expected contents of :config to be sexps, got t\n  rule:custom-replace-set"
+                    "Expected contents of :init to be sexps, got t\n  rule:add-hook-instead-of-hook"
+                    "Expected contents of :config to be sexps, got t\n  rule:add-hook-instead-of-hook")
                   (up-doc-lint '(use-package fren
                                   :init t
                                   :config))))))

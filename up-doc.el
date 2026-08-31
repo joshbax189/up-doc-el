@@ -521,8 +521,8 @@ Returns a possibly empty list of string warnings."
                       (rule (alist-get r up-doc-rules))
                       (result (funcall (plist-get rule :function) package)))
             (if (listp result)
-                (setq warnings (append result warnings))
-              (push result warnings)))
+                (setq warnings (append (--map (concat it "\n  rule:" (symbol-name r)) result) warnings))
+              (push (concat result "\n  rule:" (symbol-name r)) warnings)))
         (error (message "Error in rule %s:\n  %s" (symbol-name r) err))))
     ;; print results
     (let ((result (-uniq (nreverse warnings))))
