@@ -11,11 +11,12 @@ It helps identify common issues, suggests improvements, and cleans up configurat
 
 ** Installation
 
-1.  Place ~up-doc.el~ in a directory in your ~load-path~.
-2.  Add the following to your Emacs configuration:
+1. Ensure ~dash~ package is available.
+2. Install from this repository, e.g.
 #+begin_src emacs-lisp
-(require 'up-doc)
+(package-vc-install '(up-doc . (:url "https://github.com/joshbax189/up-doc-el.git")))
 #+end_src
+3. Open your init file and run ~up-doc-lint-buffer~
 
 ** Interactive Functions
 
