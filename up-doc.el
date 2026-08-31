@@ -263,9 +263,8 @@ Bad example
     (when-let* ((defer-kw (seq-some (lambda (kw) (and (memq kw package) kw)) up-doc-defer-like)))
       (format ":defer t can be removed since %s implies deferred loading" defer-kw))))
 
-;; TODO this is a general rule that applies to most keywords
-(up-doc-rule hook-inline-nested
-    "Arguments to keywords are assumed to be a list of cons cells.
+(up-doc-rule inline-nested-forms
+    "Arguments to keywords are assumed to be a list of cons cells or forms.
 This list does not need to be explicitly written.
 
 Bad example
@@ -280,13 +279,17 @@ Good example
     (x-hook . fn)
     (y-hook . fn))
 "
-  (-when-let* ((hooks (plist-get package :hook))
-               (_ (eq 1 (proper-list-p hooks))) ;; nil if a dotted cons
-               (_ (proper-list-p (car hooks)))
-               (_ (consp (car (car hooks)))) ;; should be a dotted cons too
-               ((((a . b))) hooks)
-               (_ (symbolp b)))
-    (format "consider inlining contents of :hook keyword to reduce nesting")))
+  (let (warnings)
+   (dolist (keyword '(:hook :custom :mode :bind)) ;; TODO any other keywords possible?
+    (-when-let* ((forms (plist-get package keyword))
+                 (_ (eq 1 (proper-list-p forms))) ;; nil if a dotted cons
+                 (inner-list (car forms))
+                 (_ (proper-list-p inner-list))
+                 (_ (not (or (symbolp (car inner-list))
+                             (stringp (car inner-list))))) ;; e.g. ("C-x" . some-fn)
+                 )
+      (push (format "consider inlining contents of %s keyword to reduce nesting" keyword) warnings)))
+   warnings))
 
 (up-doc-rule hook-warn-lambdas
     "Hooks should be named functions rather than anonymous lambdas.

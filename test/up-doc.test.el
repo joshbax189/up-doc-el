@@ -216,7 +216,7 @@
                                     ;; unnecessary nesting
                                     ((a-hook . fn)
                                      (x-hook . fn))))
-                    '("consider inlining contents of :hook keyword to reduce nesting\n  rule:hook-inline-nested"))))))
+                    '("consider inlining contents of :hook keyword to reduce nesting\n  rule:inline-nested-forms"))))))
 
 (ert-deftest up-doc-lint/test-5 ()
   "Should suggest adding :hook."
@@ -285,6 +285,35 @@ _C-n_ext line  _a_ll              _R_efine               _C-z_: undo
                   (up-doc-lint '(use-package fren
                                   :init t
                                   :config))))))
+
+(ert-deftest up-doc-lint/test-inline-bind ()
+  "Tests inline-nested-forms for :bind keyword."
+  (let ((res (up-doc-lint '(use-package foo
+                           :bind
+                           (("x" . foo-fn))))))
+   (should (seq-some (lambda (x) (string-match-p "rule:inline-nested-forms" x)) res)))
+  (let ((res (up-doc-lint '(use-package foo
+                          :bind
+                          (([remap sth] . foo-fn)
+                           ("x" . foo-fn))))))
+    (should (seq-some (lambda (x) (string-match-p "rule:inline-nested-forms" x)) res)))
+  (let ((res (up-doc-lint '(use-package foo
+                          :bind
+                          ((:map emacs-lisp-mode-map
+                                 ("C-c RET" . macrostep-expand)
+                                 ("C-c C-c" . eval-buffer)
+                                 ("C-c C-t" . ert-run-test-at-point)))))))
+    (should (seq-some (lambda (x) (string-match-p "rule:inline-nested-forms" x)) res))))
+
+(ert-deftest up-doc-lint/test-inline-bind-negative-cases ()
+  "Tests inline-nested-forms for :bind keyword."
+  (let ((res (up-doc-lint '(use-package expand-region
+                             :bind
+                             ("C-x C-o" . 'er/expand-region)
+                             :custom
+                             ;; default to expand is o, i is right beside it
+                             (expand-region-contract-fast-key "i")))))
+   (should-not (seq-some (lambda (x) (string-match-p "rule:inline-nested-forms" x)) res))))
 
 (ert-deftest up-doc-lint/test-custom ()
   "Tests custom var warning."

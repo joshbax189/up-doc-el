@@ -67,7 +67,7 @@ The following linter rules are included:
 - ~ensure-redundant-with-global~: Warns when ~:ensure~ is redundant because it matches ~use-package-always-ensure~.
 - ~demand-redundant-with-global~: Warns when ~:demand t~ is redundant because ~use-package-always-demand~ is non-nil.
 - ~defer-implied-by-others~: Warns when ~:defer t~ is implied by other keywords like ~:commands~ or ~:mode~.
-- ~hook-inline-nested~: Suggests inlining nested ~:hook~ arguments for better readability.
+- ~inline-nested-forms~: Suggest removing redundant list wrapping forms for keywords ~:bind~, ~:hook~ and ~:custom~.
 - ~hook-warn-lambdas~: Warns against using lambdas in ~:hook~ and suggests using ~defun~ instead.
 - ~hook-warn-double-hook~: Warns when a ~:hook~ symbol already has the ~-hook~ suffix.
 - ~add-hook-instead-of-hook~: Suggests using ~:hook~ instead of ~add-hook~ within ~:init~ or ~:config~.
