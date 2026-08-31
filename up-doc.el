@@ -220,10 +220,8 @@ skip rule evaluation for all forms."
      (defcustom ,(up-doc--rule-name-to-var name) t
        ,docstring :tag ,(format "Enable rule: %s" name) :type 'boolean :group 'up-doc)
      ;; keeping the plist format since there may be more metadata later
-     (add-to-list 'up-doc-rules
-                  '(,name . (:doc ,docstring :function (lambda (package) ,docstring ,@body)))
-                  nil
-                  (lambda (x y) (eq (car x) (car y))))))
+     (push '(,name . (:doc ,docstring :function (lambda (package) ,docstring ,@body)))
+           up-doc-rules)))
 
 ;;;; Rules:
 (up-doc-rule ensure-redundant-with-global
