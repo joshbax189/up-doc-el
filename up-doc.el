@@ -446,7 +446,13 @@ Bad example
 "
   (when (equal (plist-get package :defer) t)
     (when-let* ((defer-kw (seq-some (lambda (kw) (and (memq kw package) kw)) up-doc-defer-like)))
-      (format ":defer t can be removed since %s implies deferred loading" defer-kw))))
+      (let ((diff-text (when marker
+                         (save-excursion
+                           (goto-char marker)
+                           (up-doc--diff-with-sexp-at-point (up-doc--delete-keyword (sexp-at-point) :defer))))))
+        (concat (format ":defer t can be removed since %s implies deferred loading" defer-kw)
+                (when diff-text "\n")
+                diff-text)))))
 
 (up-doc-rule inline-nested-forms
     "Arguments to keywords are assumed to be a list of cons cells or forms.
