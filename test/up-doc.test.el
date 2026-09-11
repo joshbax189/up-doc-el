@@ -531,4 +531,18 @@ _C-n_ext line  _a_ll              _R_efine               _C-z_: undo
     (mock (featurep 'fren) => t)
     (should-not (up-doc-lint '(use-package fren)))))
 
+(ert-deftest up-doc--sexp-diff/test ()
+  "Tests common cases."
+  (should-not (up-doc--sexp-diff 'x 'x))
+  (should (equal (up-doc--sexp-diff 'a 'x)
+                 '((nil . x))))
+  (should (equal (up-doc--sexp-diff '(1 a) '(1 x))
+                 '(((1) . x))))
+  (should (equal (up-doc--sexp-diff '(1 a) '(1))
+                 '(((1) . :removed))))
+  (should (equal (up-doc--sexp-diff '(1) '(1 x))
+                 '(((0) . (:added 1 x)))))
+  (should (equal (up-doc--sexp-diff '(1 (2 a ()) 3) '(1 (2 3) 3))
+                 '(((1 1) . 3) ((1 2) . :removed)))))
+
 ;;; up-doc.test.el ends here

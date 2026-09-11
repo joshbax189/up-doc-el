@@ -58,6 +58,128 @@
   :group 'up-doc
   :type 'boolean)
 
+(defun up-doc--location-tree-at-point ()
+  "Produce location tree for the sexp following point.
+The location tree has nodes (location . children) where each location is the
+start of a sexp."
+  (save-excursion
+    (let ((root (point))
+          children)
+      (if (atom (sexp-at-point))
+          (cons root nil)
+        (down-list) ;; must be at the start of sexp
+        (ignore-error scan-error ;; note that scan error will break the while loop
+            (while t
+              (forward-sexp) ;; leaves point at end of sexp
+              (backward-sexp)
+              (push (up-doc--location-tree-at-point) children)
+              (forward-sexp)))
+        (cons root (nreverse children))))))
+
+(defun up-doc--sexp-diff (old new &optional prefix-stack)
+  "Report the changes between OLD NEW as a list of (path . change).
+
+Path may be
+- (), if the whole of OLD was changed
+- (i . path), if the change to OLD is in the ith sub-expression (0-based)
+
+Note that paths are always relative to the structure of OLD.
+
+Change may be
+- :removed, if the sub-expression identified by path was removed
+- (:added . sexps), if the sub-expression was replaced by sexps inline
+  similar to ,@
+- a sexp, if if the sub-expression was replaced
+
+PREFIX-STACK accumulates the current path in reverse order."
+  (if (or (atom old) (atom new))
+      (unless (equal old new)
+        (list (cons (reverse prefix-stack) new)))
+    (cl-loop for i from 0 to (1- (length old))
+             for e1 = (nth i old)
+             ;; mark difference between removed and literal nil
+             for e2 = (if (length< new (1+ i))
+                          :removed
+                        (if (and (length= old (1+ i)) (length> new (length old)))
+                            (cons :added (nthcdr i new))
+                          (nth i new)))
+             ;; filter nil
+             for change = (if (eq :added (car-safe e2))
+                              ;; (:added . sexps) must not be treated as a real expression here
+                              (list (cons (reverse (cons i prefix-stack)) e2))
+                            (up-doc--sexp-diff e1 e2 (cons i prefix-stack)))
+             when change append change)))
+
+(defun up-doc--location-tree-elt (loc-tree path)
+  "Get a location from LOC-TREE following PATH.
+Returns nil if PATH does not exist."
+  (dolist (n path)
+    (setq loc-tree (nth n (cdr loc-tree))))
+  (car-safe loc-tree))
+
+(defun up-doc---apply-sexp-diff (diff &optional loc-tree)
+  "Modify the sexp following point with the changes in DIFF.
+DIFF is produced by `up-doc--sexp-diff'.
+LOC-TREE is for the sexp at point."
+  (unless loc-tree (setq loc-tree (up-doc--location-tree-at-point)))
+  (save-excursion
+    ;; apply changes in reverse order to preserve locations
+    (dolist (change (sort diff :reverse t))
+      (let* ((path (car change))
+             (new-sexp (cdr change))
+             (target (up-doc--location-tree-elt loc-tree path)))
+        (when target
+          (goto-char target)
+          (cond
+           ((eq :removed new-sexp)
+            (kill-sexp))
+           ((eq :added (car-safe new-sexp))
+            ;; (kill-sexp) ;; preserve existing
+            (forward-sexp) ;; TODO what if a comment follows this?
+            (dolist (sexp (cddr new-sexp))
+              (newline-and-indent)
+              (princ sexp (current-buffer))))
+           (t
+            (kill-sexp)
+            (princ new-sexp (current-buffer)))))))))
+
+(defun up-doc--diff-with-sexp-at-point (new-version)
+  "Assume NEW-VERSION is a modification of sexp at point.
+Produce diff as a result of applying source-level changes to match NEW-VERSION."
+  (save-excursion
+    (let* ((sexp (sexp-at-point))
+           (start (point))
+           (end (progn
+                  ;; point may be at start or end of sexp
+                  (if (looking-at-p "(") (forward-sexp) (backward-sexp))
+                  (point)))
+           (sexp-text (buffer-substring start end)))
+
+      (with-current-buffer (get-buffer-create "*modified*")
+        (erase-buffer)
+        (emacs-lisp-mode)
+        (insert sexp-text)
+        (goto-char (point-min))
+        (let ((tree (up-doc--location-tree-at-point))
+              (changes (up-doc--sexp-diff sexp new-version)))
+          (up-doc---apply-sexp-diff changes tree))
+        (goto-char (point-max))
+        (newline))
+      (with-current-buffer (get-buffer-create "*orig*")
+        (erase-buffer)
+        (emacs-lisp-mode)
+        (insert sexp-text)
+        (newline))
+      (diff-buffers "*orig*" "*modified*" "-u" t)
+      (with-current-buffer "*Diff*"
+        (let* ((diff-start (goto-line 2))
+               (diff-end (progn (goto-char (point-max)) (forward-line -2) (point)))
+               (diff-text (buffer-substring diff-start diff-end)))
+          (kill-buffer)
+          (kill-buffer "*orig*")
+          (kill-buffer "*modified*")
+          diff-text)))))
+
 (defun up-doc--form-to-plist (form)
   "Convert a `use-package' FORM to a plist indexed by `use-package-keywords'.
 The package name is available using the special keyword :package."
@@ -90,7 +212,6 @@ The package name is available using the special keyword :package."
     (when current-keyword
       (setq plist (append plist (list current-keyword current-value))))
     plist))
-
 
 (defun up-doc--normalize-mode-list (form-list mode-fn)
   "Convert :mode arguments FORM-LIST to `auto-mode-alist' format.
