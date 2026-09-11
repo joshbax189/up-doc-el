@@ -287,6 +287,21 @@ The result of this function will always be a list of forms."
         (up-doc--normalize-hook-list (car form-list) mode-fn)
       (error "Bad format for :hook list %S" form-list))))
 
+(defun up-doc--delete-keyword (form keyword)
+  "Delete KEYWORD and contents from `use-package' FORM."
+  (let (res
+        do-remove)
+    (dolist (exp form)
+      (if (equal exp keyword)
+          (setq do-remove t)
+        (if do-remove
+            (when (and (symbolp exp)
+                       (string-prefix-p ":" (symbol-name exp)))
+              (setq do-remove nil)
+              (push exp res))
+          (push exp res))))
+    (nreverse res)))
+
 (defun up-doc--rule-names ()
   "Rule names in `up-doc-rules'."
   (-uniq (map-keys up-doc-rules)))
