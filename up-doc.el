@@ -53,10 +53,6 @@
   :group 'up-doc
   :type 'boolean)
 
-(defcustom up-doc-enable-top-level-suggest t "Suggest moving top-level forms into `use-package' forms."
-  :group 'up-doc
-  :type 'boolean)
-
 (defun up-doc--form-to-plist (form)
   "Convert a use-package FORM to a plist indexed by `use-package-keywords'.
 The package name is available using the special keyword :package."
@@ -173,6 +169,25 @@ The result of this function will always be a list of forms."
   "Get the global var name for RULE-NAME."
   (intern (concat "up-doc-rule--" (symbol-name rule-name))))
 
+(defun up-doc--enabled-rule-names (&optional mask)
+  "Rule names in `up-doc-rules'.
+MASK is a plist with keys :enabled and :disabled.
+Each should have a list of rule names to either enable or
+disable."
+  (let* ((global (map-keys up-doc-rules))
+         (enabled (--filter (or (memq it global)
+                                (prog1 nil (warn "%s is not a known up-doc rule" it)))
+                            (plist-get mask :enabled)))
+         (disabled (--filter (or (memq it global)
+                                (prog1 nil (warn "%s is not a known up-doc rule" it)))
+                            (plist-get mask :disabled)))
+         ;; filter globally disabled
+         (result (--filter (symbol-value (up-doc--rule-name-to-var it)) global)))
+    (when mask
+      (setq result (append enabled result)
+            result (--filter (not (memq it disabled)) result)))
+    (-uniq result)))
+
 (defun up-doc--known-libraries ()
   "Get a list of loadable library names (strings)."
   (require 'find-func)
@@ -205,6 +220,30 @@ returns nil."
                     (up-doc--known-libraries))))
         (intern package-name)))))
 
+(defun up-doc--parse-linter-settings (settings)
+  "Parse SETTINGS into a plist with :enable :disable keys."
+  (when settings
+    (let (res)
+      (dolist (p (string-split settings " "))
+        (pcase (aref p 0)
+          (?+ (push (intern (substring p 1)) (plist-get res :enabled)))
+          (?- (push (intern (substring p 1)) (plist-get res :disabled)))
+          (_ (warn "Unrecognized up-doc setting %s" p))))
+      res)))
+
+(defun up-doc--get-linter-comment ()
+  "Return any linter rule comment before the current sexp.
+Format is as follows:
+  ;;up-doc [[+-][rule-name] ]+
+This must be on a single line."
+  (save-excursion
+    ;; ensure point is at start of sexp
+    (unless (looking-at-p "(")
+      (backward-sexp))
+    ;; then look back from the start of sexp
+    (when (looking-back ";;[[:space:]]*up-doc[[:space:]]+\\(.*\\)\n?[[:space:]]*" (line-beginning-position 0))
+      (up-doc--parse-linter-settings (match-string-no-properties 1)))))
+
 (defmacro up-doc-rule (name docstring &rest body)
   "Declare a new linter rule.
 
@@ -220,7 +259,7 @@ skip rule evaluation for all forms."
      (defcustom ,(up-doc--rule-name-to-var name) t
        ,docstring :tag ,(format "Enable rule: %s" name) :type 'boolean :group 'up-doc)
      ;; keeping the plist format since there may be more metadata later
-     (push '(,name . (:doc ,docstring :function (lambda (package) ,docstring ,@body)))
+     (push '(,name . (:doc ,docstring :function (lambda (package &optional marker) ,docstring ,@body)))
            up-doc-rules)))
 
 ;;;; Rules:
@@ -493,40 +532,113 @@ Returns a possibly empty list of string warnings."
                      (or (up-doc--find-owning-package fn) "emacs")
                      form))))))
 
-;;;###autoload
-(defun up-doc-lint (form)
-  "Lint a use-package FORM for common issues."
-  (interactive (let ((f (read (thing-at-point 'sexp))))
-                 (if (not (eq 'use-package (car f)))
-                     (user-error "Move point to the start of a use-package form.")
-                   (list f))))
-  (let ((package (up-doc--form-to-plist form))
-        (warnings '())
-        (rules (up-doc--rule-names)))
+;; see usage in up-doc-lint -- name should match
+(up-doc-rule top-level-suggest
+    "Suggest moving form into a use-package form."
+  (up-doc--top-level-suggest (save-excursion (goto-char marker) (sexp-at-point))))
 
-    ;; warn if not loaded
-    (let ((package-name (plist-get package :package)))
-      (unless (featurep package-name)
-        (if up-doc-load-before-check
-            (condition-case err
-                (load-library (symbol-name package-name))
-              (error
-               (message "up-doc: failed loading %s got error %S" package-name err)
-               (push (format "%s failed to load." package-name)
-                     warnings)))
+(defun up-doc--get-region-comments ()
+  "Scan buffer for linter comments that apply to regions.
+Result is a list of forms (START-POS END-POS SETTING) ordered by START-POS."
+  (let (result
+        settings-stack
+        ;; where the tip of settings-stack was opened
+        from)
+    (save-excursion
+      (goto-char (point-min))
+      (while (search-forward-regexp "^;;[[:space:]]*\\(end\\|begin\\)_up-doc[[:space:]]*\\(.*\\)\n?" nil t)
+        (pcase (match-string 1)
+          ("begin"
+           ;; close old stack
+           (when settings-stack
+             (push (list from (match-beginning 0) (-reduce #'up-doc--merge-settings settings-stack)) result))
+           (push (up-doc--parse-linter-settings (match-string-no-properties 2)) settings-stack)
+           (setq from (match-end 0)))
+          ("end"
+           (when settings-stack
+             (push (list from (match-beginning 0) (-reduce #'up-doc--merge-settings settings-stack)) result)
+             (pop settings-stack))
+           (setq from (match-end 0)))
+          (_ ()))))
+    ;; if there are still open ranges
+    (when settings-stack
+      (push (list from (point-max) (-reduce #'up-doc--merge-settings settings-stack)) result))
+    (nreverse result)))
+
+(defun up-doc--merge-settings (form-settings region-settings)
+  "Merge REGION-SETTINGS into FORM-SETTINGS overriding region where needed."
+  (if (not region-settings)
+      form-settings
+    (let ((local-enabled (plist-get form-settings :enabled))
+          (local-disabled (plist-get form-settings :disabled)))
+      ;; local overrides region
+      ;; enabled in local => removed from disabled
+      `(:enabled ,(append local-enabled
+                          (-difference (plist-get region-settings :enabled) local-disabled))
+        ;; disabled in local => removed from enabled
+        :disabled ,(append local-disabled
+                           (-difference (plist-get region-settings :disabled) local-enabled))))))
+
+(defun up-doc--get-settings-at-pos (range-settings position)
+  "Lookup POSITION in RANGE-SETTINGS and merge settings with any form ones.
+POSITION is a marker or buffer position.
+RANGE-SETTINGS is produced by `up-doc--get-region-comments'."
+  (when (markerp position) (setq position (marker-position position)))
+  (let ((form-settings (save-excursion
+                         (goto-char position)
+                         (up-doc--get-linter-comment)))
+        (region-settings (when range-settings
+                           (-some (-lambda ((start end setting))
+                                    (when (and (<= start position) (<= position end))
+                                      setting))
+                                  range-settings))))
+    (up-doc--merge-settings form-settings region-settings)))
+
+(defun up-doc-check-settings-at-point (pos)
+  "Display enabled rules at POS (default point)."
+  (interactive "d")
+  (message "%S" (up-doc--enabled-rule-names (up-doc--get-settings-at-pos (up-doc--get-region-comments) pos))))
+
+;;;###autoload
+(defun up-doc-lint (form &optional rule-mask marker)
+  "Lint a `use-package' FORM using `up-doc-rules'.
+When called interactively, lint the form at point.
+MARKER should be at the start of the FORM."
+  (interactive (let ((f (read (thing-at-point 'sexp))))
+                 (list f nil (point-marker))))
+  (let ((rules (up-doc--enabled-rule-names rule-mask))
+         (package (when (equal 'use-package (car form))
+                   (up-doc--form-to-plist form)))
+         warnings)
+
+    (if (not package)
+        ;; top-level-suggest is the only rule to apply to general forms
+        (setq rules (when (memq 'top-level-suggest rules) '(top-level-suggest)))
+      ;; but it never applies to use-package forms
+      (setq rules (-difference rules '(top-level-suggest)))
+      ;; warn if not loaded
+      (let ((package-name (plist-get package :package)))
+        (unless (featurep package-name)
+          (if up-doc-load-before-check
+              (condition-case err
+                  (load-library (symbol-name package-name))
+                (error
+                 (message "up-doc: failed loading %s got error %S" package-name err)
+                 (push (format "%s failed to load." package-name)
+                       warnings)))
             (push (format "%s is not currently loaded, some warnings may not apply."
                           package-name)
-                  warnings))))
+                  warnings)))))
 
     (dolist (r rules)
       (condition-case err
-          (when-let* ((_ (symbol-value (up-doc--rule-name-to-var r)))
-                      (rule (alist-get r up-doc-rules))
-                      (result (funcall (plist-get rule :function) package)))
+          (when-let* ((rule (alist-get r up-doc-rules))
+                      (result (funcall (plist-get rule :function) package marker)))
             (if (listp result)
                 (setq warnings (append (--map (concat it "\n  rule:" (symbol-name r)) result) warnings))
               (push (concat result "\n  rule:" (symbol-name r)) warnings)))
         (error (message "Error in rule %s:\n  %s" (symbol-name r) err))))
+
     ;; print results
     (let ((result (-uniq (nreverse warnings))))
       (when (called-interactively-p 'any)
@@ -539,24 +651,23 @@ Returns a possibly empty list of string warnings."
   (interactive)
   (let* ((filename (buffer-file-name))
          (filename (if filename (file-name-nondirectory (buffer-file-name)) "<no file>"))
-         (up-doc-results (get-buffer-create (format "*up-doc results %s*" filename))))
+         (up-doc-results (get-buffer-create (format "*up-doc results %s*" filename)))
+         range-settings)
     (with-current-buffer up-doc-results
       (let ((inhibit-read-only t))
         (erase-buffer)))
     (save-excursion
+      (setq range-settings (up-doc--get-region-comments))
       (goto-char (point-min))
       ;; for first one move across comments
       (forward-sexp)
       (while (< (point) (point-max))
-        (when-let* ((current-form (sexp-at-point))
+        (when-let* ((marker (point-marker))
+                    (current-form (sexp-at-point))
                     ;; this is at the end of the form!
                     (line (progn (backward-sexp) (line-number-at-pos))))
           (forward-sexp)
-          ;; TODO store marker etc here
-          (when-let* ((results (if (equal 'use-package (car current-form))
-                                   (up-doc-lint current-form)
-                                 (when up-doc-enable-top-level-suggest
-                                   (up-doc--top-level-suggest current-form)))))
+          (when-let* ((results (up-doc-lint current-form (up-doc--get-settings-at-pos range-settings (point)) marker)))
             (with-current-buffer up-doc-results
               (let ((inhibit-read-only t))
                 (insert (format "%s:%s: in %s:\n"

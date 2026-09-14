@@ -6,6 +6,70 @@
 (require 'up-doc)
 (require 'el-mock)
 
+(ert-deftest up-doc--enabled-rule-names/test-warning ()
+  "Should not enable an undefined rule."
+  (unwind-protect
+      (let ((up-doc-rules '((a) (b) (c))))
+        (defvar up-doc-rule--a t)
+        (defvar up-doc-rule--b t)
+        (defvar up-doc-rule--c t)
+        (with-mock
+          (mock (warn "%s is not a known up-doc rule" 'x) => "foo" :times 2)
+          (should (equal '(c)
+                         (up-doc--enabled-rule-names '(:disabled (a b) :enabled (x)))))
+          (should (equal '(c)
+                         (up-doc--enabled-rule-names '(:disabled (a b x)))))))
+    (makunbound 'up-doc-rule--a)
+    (makunbound 'up-doc-rule--c)
+    (makunbound 'up-doc-rule--b)))
+
+(ert-deftest up-doc--enabled-rule-names/test ()
+  "Tests masking behavior."
+  (unwind-protect
+      (let ((up-doc-rules '((a) (b) (c))))
+        (defvar up-doc-rule--a t)
+        (defvar up-doc-rule--b t)
+        (defvar up-doc-rule--c t)
+        (should (equal '(a b c)
+                       (up-doc--enabled-rule-names)))
+        ;; disable a rule globally
+        (let ((up-doc-rule--a nil))
+          (should (equal '(b c)
+                         (up-doc--enabled-rule-names))))
+        (should (equal '(a c)
+                       (up-doc--enabled-rule-names '(:disabled (b)))))
+        ;; disabled has priority
+        (should-not (up-doc--enabled-rule-names '(:disabled (a b c) :enabled (c))))
+        ;; enable has no effect if already enabled
+        (should (equal '(a c b)
+                       (up-doc--enabled-rule-names '(:enabled (a c)))))
+        (let ((up-doc-rule--a nil))
+          (should (equal '(a b c)
+                         (up-doc--enabled-rule-names '(:enabled (a)))))))
+    (makunbound 'up-doc-rule--a)
+    (makunbound 'up-doc-rule--b)
+    (makunbound 'up-doc-rule--c)))
+
+(ert-deftest up-doc--merge-settings/test ()
+  "Test basic behavior."
+  ;; when both are nil
+  (should-not (up-doc--merge-settings nil nil))
+  ;; when form-settings is nil
+  (should (equal (up-doc--merge-settings nil '(:enabled (a) :disabled (b)))
+                 '(:enabled (a) :disabled (b))))
+  ;; when form-settings is nil
+  (should (equal (up-doc--merge-settings '(:enabled (a) :disabled (b)) nil)
+                 '(:enabled (a) :disabled (b))))
+  ;; local enabled overrides region disabled
+  (should (equal (up-doc--merge-settings '(:enabled (a)) '(:disabled (a b)))
+                 '(:enabled (a) :disabled (b))))
+  ;; local disabled overrides region enabled
+  (should (equal (up-doc--merge-settings '(:disabled (a)) '(:enabled (a b)))
+                 '(:enabled (b) :disabled (a))))
+  ;; otherwise both merge
+  (should (equal (up-doc--merge-settings '(:enabled (a) :disabled (b)) '(:enabled (c) :disabled (d)))
+                 '(:enabled (a c) :disabled (b d)))))
+
 (ert-deftest up-doc--form-to-plist/test-no-arg ()
   "Keywords with no argument should default to t."
   ;; when followed by another keyword
