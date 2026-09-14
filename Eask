@@ -1,7 +1,7 @@
 ;; -*- mode: eask; lexical-binding: t -*-
 
 (package "up-doc"
-         "0.0.1"
+         "0.1.0"
          "Doctor for your use-package")
 
 (website-url "https://github.com/joshbax189/up-doc-el")

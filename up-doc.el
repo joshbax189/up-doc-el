@@ -2,7 +2,7 @@
 
 ;; Author: Josh Bax
 ;; Maintainer: Josh Bax
-;; Version: 0.0.1
+;; Version: 0.1.0
 ;; Package-Requires: ((emacs "29.1") (dash "2.20.0"))
 ;; Homepage: https://github.com/joshbax189/up-doc-el
 ;; Keywords: lisp

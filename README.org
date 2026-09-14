@@ -183,6 +183,13 @@ So to globally disable the rule above:
   (up-doc-rule--my-new-rule nil "don't use this rule"))
 #+end_src
 
+** Changelog
+
+- 0.0.1
+  - lint ~use-package~ forms in buffer, clean up ~use-package~ forms
+- 0.1.0
+  - comment to disable certain rules
+  - deprecates var ~up-doc-enable-top-level-suggest~, replaced with ~up-doc-rule--top-level-suggest~
 
 ** Contributing
 
