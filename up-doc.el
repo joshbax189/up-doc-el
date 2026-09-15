@@ -149,6 +149,7 @@ Produce diff as a result of applying source-level changes to match NEW-VERSION."
   (save-excursion
     (let* ((sexp (sexp-at-point))
            (start (point))
+           (source-file (file-name-nondirectory (buffer-file-name)))
            (end (progn
                   ;; point may be at start or end of sexp
                   (if (looking-at-p "(") (forward-sexp) (backward-sexp))
@@ -174,7 +175,9 @@ Produce diff as a result of applying source-level changes to match NEW-VERSION."
       (with-current-buffer "*Diff*"
         (let* ((diff-start (goto-line 2))
                (diff-end (progn (goto-char (point-max)) (forward-line -2) (point)))
-               (diff-text (buffer-substring diff-start diff-end)))
+               (diff-text (buffer-substring diff-start diff-end))
+               ;; this enables diff-apply
+               (diff-text (string-replace "#<buffer *modified*>" source-file diff-text)))
           (kill-buffer)
           (kill-buffer "*orig*")
           (kill-buffer "*modified*")
@@ -835,7 +838,8 @@ MARKER should be at the start of the FORM."
     (with-current-buffer up-doc-results
       (compilation-mode)
       (up-doc-results-mode)
-      (setq-local up-doc-origin-buffer origin-buffer))))
+      (setq-local up-doc-origin-buffer origin-buffer)
+      (font-lock-fontify-buffer))))
 
 (require 'compile)
 (add-to-list 'compilation-error-regexp-alist-alist '(up-doc . ("\\([[:word:]]+.el\\):\\([[:digit:]]+\\):" 1 2 nil 1)))
@@ -1037,13 +1041,16 @@ This can be used for example, with `magic-mode-alist':
   (unless up-doc-origin-buffer
     (user-error "Could not determine target buffer for linting"))
   (with-current-buffer up-doc-origin-buffer
-    (up-doc-lint-buffer)))
+    (up-doc-lint-buffer))
+  (font-lock-fontify-buffer))
 
 (define-minor-mode up-doc-results-mode
   "Minor mode for viewing up-doc reports in compilation buffer."
   :lighter " up-doc results"
-  :keymap '(("g" . up-doc-repeat))
+  :keymap '(("g" . up-doc-repeat)
+            ("a" . diff-apply-hunk))
   :group 'up-doc
+  (require 'diff-mode)
   (if up-doc-results-mode
       (progn
         ;; enable diff highlighting
