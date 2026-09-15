@@ -35,6 +35,7 @@
 (require 'dash)
 (require 'map)
 (require 'cl-extra)
+(require 'subr-x)
 
 (defconst up-doc-code-like '(:preface :init :config)
   "The bodies of these keywords are evaluated like code.")
@@ -58,7 +59,7 @@
   :type 'boolean)
 
 (defun up-doc--form-to-plist (form)
-  "Convert a use-package FORM to a plist indexed by `use-package-keywords'.
+  "Convert a `use-package' FORM to a plist indexed by `use-package-keywords'.
 The package name is available using the special keyword :package."
   (let* ((package (nth 1 form))
          (body (cddr form))
@@ -169,9 +170,11 @@ The result of this function will always be a list of forms."
   "Rule names in `up-doc-rules'."
   (-uniq (map-keys up-doc-rules)))
 
-(defun up-doc--rule-name-to-var (rule-name)
-  "Get the global var name for RULE-NAME."
-  (intern (concat "up-doc-rule--" (symbol-name rule-name))))
+;; because it's used in up-doc-rule macro
+(eval-and-compile
+  (defun up-doc--rule-name-to-var (rule-name)
+    "Get the global var name for RULE-NAME."
+    (intern (concat "up-doc-rule--" (symbol-name rule-name)))))
 
 (defun up-doc--enabled-rule-names (&optional mask)
   "Rule names in `up-doc-rules'.
@@ -249,12 +252,15 @@ This must be on a single line."
       (up-doc--parse-linter-settings (match-string-no-properties 1)))))
 
 (defmacro up-doc-rule (name docstring &rest body)
-  "Declare a new linter rule.
+  "Declare NAME as a new linter rule.
 
 Within BODY the symbol `package' is bound to a plist containing all of the
-package's use-package keywords, as per `up-doc--form-to-plist'.
+package's `use-package' keywords, as per `up-doc--form-to-plist'.
 BODY should return either nil or a string which will be shown as a linter
 suggestion.
+
+DOCSTRING is required and should give examples of situations where the rule
+applies.
 
 This creates a new custom var with the name up-doc--<name> which, if nil, will
 skip rule evaluation for all forms."
@@ -268,7 +274,7 @@ skip rule evaluation for all forms."
 
 ;;;; Rules:
 (up-doc-rule ensure-redundant-with-global
-    "Keyword :ensure has no effect if it matches the value of `use-package-always-ensure'.
+    "Keyword :ensure has no effect if it matches `use-package-always-ensure'.
 
 Bad example:
   (customize-set-value use-package-always-ensure t)
@@ -470,7 +476,7 @@ If the package is not loaded, this may give false positives."
       warnings)))
 
 (defun up-doc--top-level-suggest (form)
-  "Maybe suggest moving FORM into a use-package form.
+  "Maybe suggest moving FORM into a `use-package' form.
 Returns a possibly empty list of string warnings."
   (pcase (car form)
     ('add-hook
@@ -607,6 +613,7 @@ RANGE-SETTINGS is produced by `up-doc--get-region-comments'."
 (defun up-doc-lint (form &optional rule-mask marker)
   "Lint a `use-package' FORM using `up-doc-rules'.
 When called interactively, lint the form at point.
+RULE-MASK is output from `up-doc--get-settings-at-pos'.
 MARKER should be at the start of the FORM."
   (interactive (let ((f (read (thing-at-point 'sexp))))
                  (list f nil (point-marker))))
@@ -697,7 +704,8 @@ MARKER should be at the start of the FORM."
 ;;;###autoload
 (defun up-doc-list-missing-modes ()
   "List unbound targets of auto mode regexps.
-This can detect when use-package incorrectly guesses the mode name of a package."
+This can detect when `use-package' incorrectly guesses the mode name of a
+package."
   (interactive)
   (with-current-buffer (get-buffer-create "*Missing Modes*")
     (erase-buffer)
@@ -713,8 +721,7 @@ This can detect when use-package incorrectly guesses the mode name of a package.
 
 If OTHER-ALIST is a symbol, then remove SYM from there instead.
 This can be used for example, with `magic-mode-alist':
-  (up-doc-remove-auto-mode 'foo 'magic-mode-alist)
-"
+  (up-doc-remove-auto-mode \\='foo \\='magic-mode-alist)"
   (interactive "s")
   (when (stringp sym)
     (setq sym (intern sym)))
@@ -737,7 +744,7 @@ This can be used for example, with `magic-mode-alist':
   "Remove additional configuration that `use-package' FORM may have added."
   (interactive (let ((f (sexp-at-point)))
                  (if (not (eq 'use-package (car f)))
-                     (user-error "Move point to the start of a use-package form.")
+                     (user-error "Move point to the start of a use-package form")
                    (list f))))
   (let* ((form-plist (up-doc--form-to-plist form))
          (package (plist-get form-plist :package)))
@@ -820,7 +827,7 @@ This can be used for example, with `magic-mode-alist':
               (fn (cdr hook-sexp)))
     (unless (boundp (intern hook))
       (user-error "Not a hook: %s" hook))
-    (when (yes-or-no-p (format "Remove %s from hook %s" fn hook))
+    (when (yes-or-no-p (format "Remove %s from hook %s?" fn hook))
       ;; this fails silently
       (remove-hook hook fn))))
 
@@ -834,7 +841,7 @@ This can be used for example, with `magic-mode-alist':
          (autoload-objs (cdr (assoc-string (locate-library autoloads) load-history)))
          (autoload-defuns (--mapcat (when (and (listp it) (eq (car it) 'defun)) (list (cdr it))) autoload-objs))
          ;; currently loaded packages which require this package
-         (reverse-deps (-filter (-lambda ((file . loads))
+         (reverse-deps (-filter (-lambda ((_file . loads))
                                   (-find (lambda (x)
                                            (and (listp x)
                                                 (eq (car x) 'require)
