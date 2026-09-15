@@ -45,6 +45,10 @@
 (defvar up-doc-rules nil
   "Defined linter rules.")
 
+(defvar up-doc-origin-buffer nil
+  "Buffer that was linted producing current result set.")
+(make-variable-buffer-local 'up-doc-origin-buffer)
+
 (defgroup up-doc nil
   "Lint your `use-package' forms."
   :group 'use-package)
@@ -652,6 +656,7 @@ MARKER should be at the start of the FORM."
   (let* ((filename (buffer-file-name))
          (filename (if filename (file-name-nondirectory (buffer-file-name)) "<no file>"))
          (up-doc-results (get-buffer-create (format "*up-doc results %s*" filename)))
+         (origin-buffer (current-buffer))
          range-settings)
     (with-current-buffer up-doc-results
       (let ((inhibit-read-only t))
@@ -678,7 +683,10 @@ MARKER should be at the start of the FORM."
                   (insert (format "- %s\n" m)))))))
         (forward-sexp)))
     (pop-to-buffer up-doc-results)
-    (with-current-buffer up-doc-results (compilation-mode))))
+    (with-current-buffer up-doc-results
+      (compilation-mode)
+      (up-doc-results-mode)
+      (setq-local up-doc-origin-buffer origin-buffer))))
 
 (require 'compile)
 (add-to-list 'compilation-error-regexp-alist-alist '(up-doc . ("\\([[:word:]]+.el\\):\\([[:digit:]]+\\):" 1 2 nil 1)))
@@ -873,6 +881,23 @@ This can be used for example, with `magic-mode-alist':
         (with-current-buffer standard-output
           (help-fns--setup-xref-backend)
           (buffer-string))))))
+
+(defun up-doc-repeat ()
+  "Re-run previous lint."
+  (interactive)
+  (unless up-doc-origin-buffer
+    (user-error "Could not determine target buffer for linting"))
+  (with-current-buffer up-doc-origin-buffer
+    (up-doc-lint-buffer)))
+
+(define-minor-mode up-doc-results-mode
+  "Minor mode for viewing up-doc reports in compilation buffer."
+  :lighter " up-doc results"
+  :keymap '(("g" . up-doc-repeat))
+  :group 'up-doc
+  ;; TODO enable diff highlighting
+  ;; TODO Set eldoc help function
+  )
 
 (provide 'up-doc)
 
