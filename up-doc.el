@@ -829,7 +829,7 @@ MARKER should be at the start of the FORM."
                                 line
                                 (cadr current-form)))
                 (dolist (m results)
-                  (insert (format "- %s\n" m)))))))
+                  (insert (format "∘ %s\n" m)))))))
         (forward-sexp)))
     (pop-to-buffer up-doc-results)
     (with-current-buffer up-doc-results
@@ -1044,7 +1044,10 @@ This can be used for example, with `magic-mode-alist':
   :lighter " up-doc results"
   :keymap '(("g" . up-doc-repeat))
   :group 'up-doc
-  ;; TODO enable diff highlighting
+  (if up-doc-results-mode
+      (progn
+        ;; enable diff highlighting
+        (font-lock-add-keywords nil diff-font-lock-keywords)))
   ;; TODO Set eldoc help function
   )
 
