@@ -641,7 +641,7 @@ MARKER should be at the start of the FORM."
             (if (listp result)
                 (setq warnings (append (--map (concat it "\n  rule:" (symbol-name r)) result) warnings))
               (push (concat result "\n  rule:" (symbol-name r)) warnings)))
-        (error (message "Error in rule %s:\n  %s" (symbol-name r) err))))
+        ((error debug) (message "Error in rule %s:\n  %s" (symbol-name r) err))))
 
     ;; print results
     (let ((result (-uniq (nreverse warnings))))
