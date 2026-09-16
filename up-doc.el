@@ -411,6 +411,16 @@ skip rule evaluation for all forms."
      (push '(,name . (:doc ,docstring :function (lambda (package &optional marker) ,docstring ,@body)))
            up-doc-rules)))
 
+(defun up-doc--format-diff (marker modification-fn)
+  "Evaluate MODIFICATION-FN at MARKER and diff results.
+Return a string or null.
+MODIFICATION-FN should take a sexp and return a modified copy."
+  (when-let* ((_ marker)
+              (diff-text (save-excursion
+                           (goto-char marker)
+                           (up-doc--diff-with-sexp-at-point (funcall modification-fn (sexp-at-point))))))
+    (concat "\n" diff-text)))
+
 ;;;; Rules:
 (up-doc-rule ensure-redundant-with-global
     "Keyword :ensure has no effect if it matches `use-package-always-ensure'.
@@ -420,12 +430,11 @@ Bad example:
   (use-package foo
      :ensure)
 "
-    ;; TODO if quelpa or straight is present, how does that effect things?
-    ;; I assume straight-ensure => always ensure, so do the same?
   (let ((form-value (plist-get package :ensure)))
     (when (and (equal use-package-always-ensure form-value)
                (plist-member package :ensure))
-      (format ":ensure %s is redundant when use-package-always-ensure is %s." form-value use-package-always-ensure))))
+      (concat (format ":ensure %s is redundant when use-package-always-ensure is %s." form-value use-package-always-ensure)
+              (when marker (up-doc--format-diff marker (lambda (f) (up-doc--delete-keyword f :ensure))))))))
 
 (up-doc-rule demand-redundant-with-global
     "Setting :demand t has no effect if `use-package-always-demand' is also t.
@@ -436,7 +445,8 @@ Bad example:
      :demand)"
   (when (and use-package-always-demand
              (plist-get package :demand))
-    ":demand t is redundant when use-package-always-demand is non-nil."))
+    (concat ":demand t is redundant when use-package-always-demand is non-nil."
+            (when marker (up-doc--format-diff marker (lambda (f) (up-doc--delete-keyword f :demand)))))))
 
 (up-doc-rule defer-implied-by-others
     "Keyword :defer is implied by many other keywords.
@@ -449,13 +459,8 @@ Bad example
 "
   (when (equal (plist-get package :defer) t)
     (when-let* ((defer-kw (seq-some (lambda (kw) (and (memq kw package) kw)) up-doc-defer-like)))
-      (let ((diff-text (when marker
-                         (save-excursion
-                           (goto-char marker)
-                           (up-doc--diff-with-sexp-at-point (up-doc--delete-keyword (sexp-at-point) :defer))))))
-        (concat (format ":defer t can be removed since %s implies deferred loading" defer-kw)
-                (when diff-text "\n")
-                diff-text)))))
+      (concat (format ":defer t can be removed since %s implies deferred loading" defer-kw)
+              (when marker (up-doc--format-diff marker (lambda (f) (up-doc--delete-keyword f :defer))))))))
 
 (up-doc-rule inline-nested-forms
     "Arguments to keywords are assumed to be a list of cons cells or forms.
