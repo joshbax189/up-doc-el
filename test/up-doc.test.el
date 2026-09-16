@@ -545,4 +545,12 @@ _C-n_ext line  _a_ll              _R_efine               _C-z_: undo
   (should (equal (up-doc--sexp-diff '(1 (2 a ()) 3) '(1 (2 3) 3))
                  '(((1 1) . 3) ((1 2) . :removed)))))
 
+(ert-deftest up-doc--sexp-diff/test-cons ()
+  "Tests cons cells."
+  (should-not (up-doc--sexp-diff '(a . b) '(a . b)))
+  (should (equal (up-doc--sexp-diff '(a . b) '(a1 . b))
+                 '(((0) . a1))))
+  (should (equal (up-doc--sexp-diff '(a . b) '(a . b1))
+                 '(((2) . b1)))))
+
 ;;; up-doc.test.el ends here

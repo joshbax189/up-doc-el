@@ -92,9 +92,17 @@ Change may be
 - a sexp, if if the sub-expression was replaced
 
 PREFIX-STACK accumulates the current path in reverse order."
-  (if (or (atom old) (atom new))
-      (unless (equal old new)
-        (list (cons (reverse prefix-stack) new)))
+  (cond
+   ((equal old new) nil)
+   ((or (atom old) (atom new))
+    (list (cons (reverse prefix-stack) new)))
+   ;; literal cons cells
+   ((or (atom (cdr old)) (atom (cdr new)))
+    (append
+     (up-doc--sexp-diff (car old) (car new) (cons 0 prefix-stack))
+     ;; location tree for a cons literal has an extra child for "."
+     (up-doc--sexp-diff (cdr old) (cdr new) (cons 2 prefix-stack))))
+   (t
     (cl-loop for i from 0 to (1- (length old))
              for e1 = (nth i old)
              ;; mark difference between removed and literal nil
@@ -108,7 +116,7 @@ PREFIX-STACK accumulates the current path in reverse order."
                               ;; (:added . sexps) must not be treated as a real expression here
                               (list (cons (reverse (cons i prefix-stack)) e2))
                             (up-doc--sexp-diff e1 e2 (cons i prefix-stack)))
-             when change append change)))
+             when change append change))))
 
 (defun up-doc--location-tree-elt (loc-tree path)
   "Get a location from LOC-TREE following PATH.
