@@ -567,7 +567,17 @@ Good Example
          (when (string-suffix-p use-package-hook-name-suffix (symbol-name it))
            (push it bad-hooks)))))
     (when bad-hooks
-      (format "hooks %s should not end in default suffix %s" bad-hooks use-package-hook-name-suffix))))
+      (concat (format "hooks %s should not end in default suffix %s" bad-hooks use-package-hook-name-suffix)
+              ;; :hooks = (symbol | (cons (symbol | list symbol) symbol))*
+              (up-doc--format-diff marker (lambda (sexp)
+                                      (cl-flet ((rename-hook (x) (if (memq x bad-hooks) (intern (string-remove-suffix use-package-hook-name-suffix (symbol-name x))) x)))
+                                       (-tree-map (lambda (sym-or-cons)
+                                                    (cl-typecase sym-or-cons
+                                                      (symbol (rename-hook sym-or-cons))
+                                                      ;; tree-map does not descend into cons pairs
+                                                      (cons (cons (-tree-map #'rename-hook (car sym-or-cons)) (cdr sym-or-cons)))
+                                                      (t sym-or-cons)))
+                                                  sexp))))))))
 
 (up-doc-rule add-hook-instead-of-hook
     "Suggest using :hook instead of add-hook.
