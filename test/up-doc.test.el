@@ -553,4 +553,9 @@ _C-n_ext line  _a_ll              _R_efine               _C-z_: undo
   (should (equal (up-doc--sexp-diff '(a . b) '(a . b1))
                  '(((2) . b1)))))
 
+(ert-deftest up-doc--sexp-diff/test-cons-replace ()
+  "Replacing a list with a cons cell."
+  (should (equal (up-doc--sexp-diff '(a b c) '(x . c))
+                 '(((0) . x) ((1) . \.)))))
+
 ;;; up-doc.test.el ends here
