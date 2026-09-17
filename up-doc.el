@@ -191,6 +191,63 @@ Produce diff as a result of applying source-level changes to match NEW-VERSION."
           (kill-buffer "*modified*")
           diff-text)))))
 
+(defun up-doc--diff-inline-transform (keyword)
+  "Assume NEW-VERSION is a modification of sexp at point.
+Produce diff as a result of applying source-level changes to match NEW-VERSION."
+  (save-excursion
+    (let* ((start (point))
+           (source-file (file-name-nondirectory (buffer-file-name)))
+           (end (progn
+                  ;; point may be at start or end of sexp
+                  (if (looking-at-p "(") (forward-sexp) (backward-sexp))
+                  (point)))
+           (sexp-text (buffer-substring start end))
+           start-block end-block)
+
+      (with-current-buffer (get-buffer-create "*modified*")
+        (erase-buffer)
+        (emacs-lisp-mode)
+        (insert sexp-text)
+        (goto-char (point-min))
+        ;; modification goes here >>
+        ;; go to keyword -- leaves point at end of match
+        (search-forward (if (symbolp keyword) (symbol-name keyword) keyword))
+        ;; go to start of next sexp
+        (forward-sexp)
+        (setq end-block (point))
+        (backward-sexp)
+        ;; save point
+        (setq start-block (point))
+        ;; go to end of sexp
+        (forward-sexp)
+        ;; delete )
+        (delete-char -1)
+        ;; back to start
+        (goto-char start-block)
+        ;; delete (
+        (delete-char 1)
+        ;; indent region -- conservative otherwise indentation can change for whole form
+        (indent-region start-block end-block)
+        ;; << end of modification
+        (goto-char (point-max))
+        (newline))
+      (with-current-buffer (get-buffer-create "*orig*")
+        (erase-buffer)
+        (emacs-lisp-mode)
+        (insert sexp-text)
+        (newline))
+      (diff-buffers "*orig*" "*modified*" "-u" t)
+      (with-current-buffer "*Diff*"
+        (let* ((diff-start (goto-line 2))
+               (diff-end (progn (goto-char (point-max)) (forward-line -2) (point)))
+               (diff-text (buffer-substring diff-start diff-end))
+               ;; this enables diff-apply
+               (diff-text (string-replace "#<buffer *modified*>" source-file diff-text)))
+          (kill-buffer)
+          (kill-buffer "*orig*")
+          (kill-buffer "*modified*")
+          diff-text)))))
+
 (defun up-doc--form-to-plist (form)
   "Convert a `use-package' FORM to a plist indexed by `use-package-keywords'.
 The package name is available using the special keyword :package."
@@ -495,7 +552,13 @@ Good example
                  (_ (not (or (symbolp (car inner-list))
                              (stringp (car inner-list))))) ;; e.g. ("C-x" . some-fn)
                  )
-      (push (format "consider inlining contents of %s keyword to reduce nesting" keyword) warnings)))
+      (push (concat
+             (format "consider inlining contents of %s keyword to reduce nesting" keyword)
+             (when marker
+               (concat "\n" (save-excursion
+                              (goto-char marker)
+                              (up-doc--diff-inline-transform keyword)))))
+            warnings)))
    warnings))
 
 (up-doc-rule hook-warn-lambdas
