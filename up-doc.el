@@ -151,8 +151,12 @@ LOC-TREE is for the sexp at point."
            ((eq :removed new-sexp)
             (kill-sexp))
            ((eq :added (car-safe new-sexp))
-            ;; (kill-sexp) ;; preserve existing
-            (forward-sexp) ;; TODO what if a comment follows this?
+            ;; first sexp after :added may be equal or different
+            (if (equal (sexp-at-point) (cadr new-sexp))
+                (forward-sexp) ;; TODO what if a comment follows this?
+              (kill-sexp)
+              (princ (cadr new-sexp) (current-buffer)))
+            ;; remaining members of new-sexp are always added
             (dolist (sexp (cddr new-sexp))
               (newline-and-indent)
               (princ sexp (current-buffer))))
