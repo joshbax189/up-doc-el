@@ -766,18 +766,31 @@ allows recording reasons alongside the assignments."
                           code-forms)
                   warnings)
           (-each code-forms
-            (-lambda ((fn-head v exp . rest))
+            (-lambda ((form &as fn-head v exp . rest))
               (when (and (memq fn-head '(setq setq-default set-default setopt))
                          (custom-variable-p v))
-                (push (cons v exp) custom-forms)
-                ;; for (setq x v y v ...)
-                (when rest
-                  (dolist (pair (seq-split rest 2))
-                    (push (cons (car pair) (cadr pair)) custom-forms)))))))))
+                ;; format is ((keyword . old-form) . (list (var . exp)))
+                (let ((origin (cons place form))
+                      (binds (list (cons v exp))))
+                  ;; for (setq x v y v ...)
+                  (when rest
+                    (dolist (pair (seq-split rest 2))
+                      (push (cons (car pair) (cadr pair)) binds)))
+                  (push (cons origin (nreverse binds)) custom-forms))))))))
     (when custom-forms
-     (push (format "Instead of setting these variables individually, use\n  :custom\n%s"
-                   (string-join (-map (-lambda ((a . b)) (format "  (%s . %S)" a b)) custom-forms) "\n"))
-           warnings))
+      (push (concat "Instead of setting these variables individually, use :custom"
+                    (up-doc--format-diff marker
+                                   (lambda (f)
+                                     (let ((res f))
+                                       ;; move each one
+                                       (dolist (pair custom-forms)
+                                         (-let ((((keyword . old-form) . binds) pair))
+                                           ;; one origin form
+                                           (setq res (up-doc--delete-form res keyword old-form))
+                                           ;; multiple resulting binds
+                                           (setq res (apply #'up-doc--insert-form res :custom binds))))
+                                       res))))
+            warnings))
     warnings))
 
 (up-doc-rule custom-symbol-exists
