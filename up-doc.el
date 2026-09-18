@@ -374,6 +374,8 @@ The result of this function will always be a list of forms."
         (up-doc--normalize-hook-list (car form-list) mode-fn)
       (error "Bad format for :hook list %S" form-list))))
 
+;;;; Modification of Source-Forms:
+;; a source form is a non-normalized use-package form, i.e. the result of sexp-at-point
 (defun up-doc--delete-keyword (form keyword)
   "Delete KEYWORD and contents from `use-package' FORM."
   (let (res
@@ -382,12 +384,63 @@ The result of this function will always be a list of forms."
       (if (equal exp keyword)
           (setq do-remove t)
         (if do-remove
-            (when (and (symbolp exp)
-                       (string-prefix-p ":" (symbol-name exp)))
+            (when (keywordp exp)
               (setq do-remove nil)
               (push exp res))
           (push exp res))))
     (nreverse res)))
+
+(defun up-doc--delete-form (parent-form keyword form)
+  "Delete FORM from `use-package' PARENT-FORM within KEYWORD block."
+  (if-let* ((keyword-idx (-elem-index keyword parent-form)))
+      (let* ((split-list (-split-at keyword-idx parent-form))
+             ;; everything up to keyword
+             (res-prefix (car split-list))
+             (suffix-no-keyword (cdr (cadr split-list)))
+             ;; car = list of forms in keyword block
+             ;; cadr = from next keyword to end
+             (block-and-suffix (-split-with (-not #'keywordp) suffix-no-keyword))
+             (block-forms (car block-and-suffix))
+             (res-suffix (cadr block-and-suffix)))
+        (append res-prefix
+                ;; block-forms is always a list
+                (if (length= block-forms 1)
+                    ;; when there is a single form, either it is equal or it is a nested list
+                    ;; when equal - delete both form and keyword
+                    (unless (equal (car-safe block-forms) form)
+                      ;; otherwise remove inside nested list - this also flattens the list
+                      (list keyword (if (proper-list-p (car block-forms)) (-remove-item form (car block-forms)) (car block-forms))))
+                  ;; otherwise block is a list of forms
+                  (cons keyword (-remove-item form block-forms)))
+                res-suffix))
+    ;; no keyword match
+    parent-form))
+
+(defun up-doc--insert-form (parent-form keyword form)
+  "Insert FORM info `use-package' PARENT-FORM within KEYWORD block.
+Note that it does no uniqueness checking."
+  (if-let* ((keyword-idx (-elem-index keyword parent-form)))
+      (let* ((split-list (-split-at keyword-idx parent-form))
+             ;; everything up to keyword
+             (res-prefix (car split-list))
+             (suffix-no-keyword (cdr (cadr split-list)))
+             ;; car = list of forms in keyword block
+             ;; cadr = from next keyword to end
+             (block-and-suffix (-split-with (-not #'keywordp) suffix-no-keyword))
+             (block-forms (car block-and-suffix))
+             (res-suffix (cadr block-and-suffix)))
+        (append res-prefix
+                ;; block-forms is always a list
+                (if (length= block-forms 1)
+                    ;; when there is a single form it may be a nested list
+                    (if (proper-list-p (car block-forms))
+                        (list keyword (cons form (car block-forms)))
+                      (cons keyword (list form (car block-forms))))
+                  ;; otherwise block is a list of forms
+                  (cons keyword (cons form block-forms)))
+                res-suffix))
+    ;; no keyword match
+    (append parent-form (list keyword form))))
 
 (defun up-doc--rule-names ()
   "Rule names in `up-doc-rules'."
@@ -675,12 +728,26 @@ Keeping similar logic together eases maintenance."
          (-each code-forms
            (-lambda ((form &as fn-head))
              (when (eq fn-head 'add-hook)
-               (-let (((_ hook fn) form))
-                 ;; hook is 'some-hook i.e. (quote some-hook), so use eval here
-                 (push (cons (string-remove-suffix use-package-hook-name-suffix (symbol-name (eval hook))) fn) hooks))))))))
+               ;; (add-hook 'var function)
+               (-let (((_ (_ hook) (fn-head . fn-rest)) form))
+                 ;; format ((keyword . add-hook-form) . (hook-name . fn-symbol-or-lambda))
+                 (push (cons (cons place form)
+                             ;; (cons hook-name function)
+                             (cons (intern (string-remove-suffix use-package-hook-name-suffix (symbol-name hook)))
+                                   ;; unquote function if symbol
+                                   (if (memq fn-head '(quote function))
+                                       (car fn-rest)
+                                     (cons fn-head fn-rest))))
+                       hooks))))))))
     (when hooks
-      (push (format "Instead of calling add-hook, use\n  :hook\n%s"
-                    (string-join (-map (-lambda ((a . b)) (format "  (%s . %S)" a b)) hooks) "\n"))
+      (push (concat "Instead of calling add-hook, use :hook"
+                    (up-doc--format-diff marker
+                                   (lambda (f) (let ((res f))
+                                                 ;; move each hook
+                                                 (dolist (h hooks)
+                                                   (-let ((((keyword . old-form) . new-form) h))
+                                                     (setq res (up-doc--insert-form (up-doc--delete-form res keyword old-form) :hook new-form))))
+                                                 res))))
             warnings))
     warnings))
 

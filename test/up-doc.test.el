@@ -618,4 +618,47 @@ _C-n_ext line  _a_ll              _R_efine               _C-z_: undo
   (should (equal (up-doc--delete-keyword '(use-package blah :bah (x) (y) (z) :foo z) :bah)
                  '(use-package blah :foo z))))
 
+(ert-deftest up-doc--delete-form/test ()
+  "Tests basic behavior."
+  ;; no match keyword
+  (should (equal (up-doc--delete-form '(use-package blah :bah a) :foo '(foo))
+                 '(use-package blah :bah a)))
+  ;; no match form
+  (should (equal (up-doc--delete-form '(use-package blah :bah a) :bah 'b)
+                 '(use-package blah :bah a)))
+  (should (equal (up-doc--delete-form '(use-package blah :bah (x y z)) :bah 'b)
+                 '(use-package blah :bah (x y z))))
+  (should (equal (up-doc--delete-form '(use-package blah :bah (n . 1)) :bah 'b)
+                 '(use-package blah :bah (n . 1))))
+  (should (equal (up-doc--delete-form '(use-package blah :bah ((n . 1) (m . 2))) :bah 'b)
+                 '(use-package blah :bah ((n . 1) (m . 2)))))
+  ;; nested list
+  (should (equal (up-doc--delete-form '(use-package blah :bah ((x) (y) (z))) :bah '(y))
+                 '(use-package blah :bah ((x) (z)))))
+  ;; flat list
+  (should (equal (up-doc--delete-form '(use-package blah :bah (x) (y) (z)) :bah '(y))
+                 '(use-package blah :bah (x) (z)))))
+
+(ert-deftest up-doc--insert-form/test ()
+  "Tests basic behavior."
+  ;; no match keyword
+  (should (equal (up-doc--insert-form '(use-package blah :bah a) :foo '(foo))
+                 '(use-package blah :bah a :foo (foo))))
+  (should (equal (up-doc--insert-form '(use-package blah :bah a) :bah 'b)
+                 '(use-package blah :bah b a)))
+  (should (equal (up-doc--insert-form '(use-package blah :bah (x y z)) :bah 'b)
+                 '(use-package blah :bah (b x y z))))
+  (should (equal (up-doc--insert-form '(use-package blah :bah (n . 1)) :bah 'b)
+                 '(use-package blah :bah b (n . 1))))
+  (should (equal (up-doc--insert-form '(use-package blah :bah ((n . 1) (m . 2))) :bah '(o . 3))
+                 '(use-package blah :bah ((o . 3) (n . 1) (m . 2)))))
+  (should (equal (up-doc--insert-form '(use-package blah :bah (n . 1) (m . 2)) :bah '(o . 3))
+                 '(use-package blah :bah (o . 3) (n . 1) (m . 2))))
+  ;; nested list
+  (should (equal (up-doc--insert-form '(use-package blah :bah ((y) (z))) :bah '(x))
+                 '(use-package blah :bah ((x) (y) (z)))))
+  ;; flat list
+  (should (equal (up-doc--insert-form '(use-package blah :bah (y) (z)) :bah '(x))
+                 '(use-package blah :bah (x) (y) (z)))))
+
 ;;; up-doc.test.el ends here
