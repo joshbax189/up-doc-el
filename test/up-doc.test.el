@@ -645,20 +645,20 @@ _C-n_ext line  _a_ll              _R_efine               _C-z_: undo
   (should (equal (up-doc--insert-form '(use-package blah :bah a) :foo '(foo))
                  '(use-package blah :bah a :foo (foo))))
   (should (equal (up-doc--insert-form '(use-package blah :bah a) :bah 'b)
-                 '(use-package blah :bah b a)))
+                 '(use-package blah :bah a b)))
   (should (equal (up-doc--insert-form '(use-package blah :bah (x y z)) :bah 'b)
-                 '(use-package blah :bah (b x y z))))
+                 '(use-package blah :bah (x y z b))))
   (should (equal (up-doc--insert-form '(use-package blah :bah (n . 1)) :bah 'b)
-                 '(use-package blah :bah b (n . 1))))
+                 '(use-package blah :bah (n . 1) b)))
   (should (equal (up-doc--insert-form '(use-package blah :bah ((n . 1) (m . 2))) :bah '(o . 3))
-                 '(use-package blah :bah ((o . 3) (n . 1) (m . 2)))))
+                 '(use-package blah :bah ((n . 1) (m . 2) (o . 3)))))
   (should (equal (up-doc--insert-form '(use-package blah :bah (n . 1) (m . 2)) :bah '(o . 3))
-                 '(use-package blah :bah (o . 3) (n . 1) (m . 2))))
+                 '(use-package blah :bah (n . 1) (m . 2) (o . 3))))
   ;; nested list
   (should (equal (up-doc--insert-form '(use-package blah :bah ((y) (z))) :bah '(x))
-                 '(use-package blah :bah ((x) (y) (z)))))
+                 '(use-package blah :bah ((y) (z) (x)))))
   ;; flat list
   (should (equal (up-doc--insert-form '(use-package blah :bah (y) (z)) :bah '(x))
-                 '(use-package blah :bah (x) (y) (z)))))
+                 '(use-package blah :bah (y) (z) (x)))))
 
 ;;; up-doc.test.el ends here

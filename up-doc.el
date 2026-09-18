@@ -416,31 +416,33 @@ The result of this function will always be a list of forms."
     ;; no keyword match
     parent-form))
 
-(defun up-doc--insert-form (parent-form keyword form)
-  "Insert FORM info `use-package' PARENT-FORM within KEYWORD block.
+(defun up-doc--insert-form (parent-form keyword &rest forms)
+  "Insert FORMS into `use-package' PARENT-FORM within KEYWORD block.
 Note that it does no uniqueness checking."
-  (if-let* ((keyword-idx (-elem-index keyword parent-form)))
-      (let* ((split-list (-split-at keyword-idx parent-form))
-             ;; everything up to keyword
-             (res-prefix (car split-list))
-             (suffix-no-keyword (cdr (cadr split-list)))
-             ;; car = list of forms in keyword block
-             ;; cadr = from next keyword to end
-             (block-and-suffix (-split-with (-not #'keywordp) suffix-no-keyword))
-             (block-forms (car block-and-suffix))
-             (res-suffix (cadr block-and-suffix)))
-        (append res-prefix
-                ;; block-forms is always a list
-                (if (length= block-forms 1)
-                    ;; when there is a single form it may be a nested list
-                    (if (proper-list-p (car block-forms))
-                        (list keyword (cons form (car block-forms)))
-                      (cons keyword (list form (car block-forms))))
-                  ;; otherwise block is a list of forms
-                  (cons keyword (cons form block-forms)))
-                res-suffix))
-    ;; no keyword match
-    (append parent-form (list keyword form))))
+  (if (null forms)
+      parent-form
+    (if-let* ((keyword-idx (-elem-index keyword parent-form)))
+        (let* ((split-list (-split-at keyword-idx parent-form))
+               ;; everything up to keyword
+               (res-prefix (car split-list))
+               (suffix-no-keyword (cdr (cadr split-list)))
+               ;; car = list of forms in keyword block
+               ;; cadr = from next keyword to end
+               (block-and-suffix (-split-with (-not #'keywordp) suffix-no-keyword))
+               (block-forms (car block-and-suffix))
+               (res-suffix (cadr block-and-suffix)))
+          (append res-prefix
+                  ;; block-forms is always a list
+                  (if (length= block-forms 1)
+                      ;; when there is a single form it may be a nested list
+                      (if (proper-list-p (car block-forms))
+                          (list keyword (append (car block-forms) forms))
+                        (cons keyword (cons (car block-forms) forms)))
+                    ;; otherwise block is a list of forms
+                    (cons keyword (append block-forms forms)))
+                  res-suffix))
+      ;; no keyword match
+      (append parent-form (cons keyword forms)))))
 
 (defun up-doc--rule-names ()
   "Rule names in `up-doc-rules'."
