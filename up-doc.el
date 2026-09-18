@@ -134,7 +134,7 @@ Returns nil if PATH does not exist."
     (setq loc-tree (nth n (cdr loc-tree))))
   (car-safe loc-tree))
 
-(defun up-doc---apply-sexp-diff (diff &optional loc-tree)
+(defun up-doc--apply-sexp-diff (diff &optional loc-tree)
   "Modify the sexp following point with the changes in DIFF.
 DIFF is produced by `up-doc--sexp-diff'.
 LOC-TREE is for the sexp at point."
@@ -184,7 +184,7 @@ Produce diff as a result of applying source-level changes to match NEW-VERSION."
         (goto-char (point-min))
         (let ((tree (up-doc--location-tree-at-point))
               (changes (up-doc--sexp-diff sexp new-version)))
-          (up-doc---apply-sexp-diff changes tree))
+          (up-doc--apply-sexp-diff changes tree))
         (goto-char (point-max))
         (newline))
       (with-current-buffer (get-buffer-create "*orig*")

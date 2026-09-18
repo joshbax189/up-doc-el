@@ -566,7 +566,7 @@ _C-n_ext line  _a_ll              _R_efine               _C-z_: undo
   (with-temp-buffer
     (insert "(a b c d)")
     (goto-char (point-min))
-    (up-doc---apply-sexp-diff '(((3) :added x y)))
+    (up-doc--apply-sexp-diff '(((3) :added x y)))
     (should (equal (sexp-at-point)
                    '(a b c x y)))))
 
