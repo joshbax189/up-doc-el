@@ -147,7 +147,8 @@ LOC-TREE is for the sexp at point."
     (dolist (change (sort diff :reverse t))
       (let* ((path (car change))
              (new-sexp (cdr change))
-             (target (up-doc--location-tree-elt loc-tree path)))
+             (target (up-doc--location-tree-elt loc-tree path))
+             last-sexp)
         (when target
           (goto-char target)
           (cond
@@ -159,10 +160,12 @@ LOC-TREE is for the sexp at point."
                 (forward-sexp) ;; TODO what if a comment follows this?
               (kill-sexp)
               (princ (cadr new-sexp) (current-buffer)))
+            (setq last-sexp (cadr new-sexp))
             ;; remaining members of new-sexp are always added
             (dolist (sexp (cddr new-sexp))
-              (newline-and-indent)
-              (princ sexp (current-buffer))))
+              (if (eq last-sexp '\.) (insert " ") (newline-and-indent))
+              (princ sexp (current-buffer))
+              (setq last-sexp sexp)))
            (t
             (kill-sexp)
             (princ new-sexp (current-buffer)))))))))
