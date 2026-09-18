@@ -110,20 +110,10 @@ PREFIX-STACK accumulates the current path in reverse order."
    ((or (atom old) (atom new))
     (list (cons (reverse prefix-stack) new)))
    ;; literal cons cells
-   ((or (-cons-pair-p old) (-cons-pair-p new))
-    (append
-     (up-doc--sexp-diff (car old) (car new) (cons 0 prefix-stack))
-     ;; location tree for a cons literal has an extra child for "."
-     ;; handle transformations of list into cons
-     (when (listp (cdr old)) ;; old = (a b c) new = (x . y)
-       ;; replace a list element with "."
-       (list (cons (reverse (cons 1 prefix-stack)) '.)))
-     (when (listp (cdr new)) ;; new = (a b c) old = (x . y)
-       ;; replace "." with a list element
-       (list (cons (reverse (cons 1 prefix-stack)) (elt new 1))))
-     (up-doc--sexp-diff (if (listp (cdr old)) (elt old 2) (cdr old))
-                  (if (listp (cdr new)) (elt new 2) (cdr new))
-                  (cons 2 prefix-stack))))
+   ((-cons-pair-p old)
+    (up-doc--sexp-diff (list (car old) '\. (cdr old)) new prefix-stack))
+   ((-cons-pair-p new)
+    (up-doc--sexp-diff old (list (car new) '\. (cdr new)) prefix-stack))
    (t
     (cl-loop for i from 0 to (1- (length old))
              for e1 = (nth i old)

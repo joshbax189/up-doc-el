@@ -561,6 +561,11 @@ _C-n_ext line  _a_ll              _R_efine               _C-z_: undo
   (should (equal (up-doc--sexp-diff '(a b c) '(x . c))
                  '(((0) . x) ((1) . \.)))))
 
+(ert-deftest up-doc--sexp-diff/test-cons-replace-2 ()
+  "Replacing a list with a cons cell."
+  (should (equal (up-doc--sexp-diff '(a b) '(x . c))
+                 '(((0) . x) ((1) :added \. c)))))
+
 (ert-deftest up-doc--apply-sexp-diff/test-replace-last ()
   "Replacing last element in a list."
   (with-temp-buffer
