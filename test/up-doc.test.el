@@ -570,4 +570,34 @@ _C-n_ext line  _a_ll              _R_efine               _C-z_: undo
     (should (equal (sexp-at-point)
                    '(a b c x y)))))
 
+(ert-deftest up-doc--location-tree-at-point/test-symbols ()
+  "Some regression."
+  (with-temp-buffer
+    (insert "(add-hook 'my-hook #'message)")
+    (emacs-lisp-mode) ;; important
+    (goto-char (point-min))
+    (should (equal (up-doc--location-tree-at-point)
+                   '(1 . ((2) (11) (20)))))))
+
+(ert-deftest up-doc--atom-like-p/test ()
+  "Tests basic behavior."
+  (should (up-doc--atom-like-p (read "'x")))
+  (should (up-doc--atom-like-p (read "#'x")))
+  (should (up-doc--atom-like-p (read "x")))
+  (should-not (up-doc--atom-like-p (read "'(x)")))
+  (should-not (up-doc--atom-like-p (read "(1)")))
+  (should (up-doc--atom-like-p (read "()"))) ;; matches atom
+  (should-not (up-doc--atom-like-p (read "'(a . b)")))
+  (should-not (up-doc--atom-like-p (cons 'a 'b))))
+
+(ert-deftest up-doc--apply-sexp-diff/test-1 ()
+  "Some regression."
+  (with-temp-buffer
+    (insert "(add-hook 'my-hook #'message)")
+    (emacs-lisp-mode)
+    (goto-char (point-min))
+    (up-doc--apply-sexp-diff '(((0) . my) ((1) . function) ((2) . foo)))
+    (should (equal (sexp-at-point)
+                   '(my . #'foo)))))
+
 ;;; up-doc.test.el ends here

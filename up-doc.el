@@ -58,22 +58,35 @@
   :group 'up-doc
   :type 'boolean)
 
+(defun up-doc--atom-like-p (sexp)
+  "Whether SEXP satisfies `atom' or is a quoted symbol.
+This is required because the read representation of a quoted symbol
+is not an atom, but the printed representation does not allow
+`down-list', so behaves like an atom."
+  (or (atom sexp)
+      (and (not (atom (cdr sexp))) ;; a cons cell cannot be (quote symbol)
+           (not (null (cadr sexp)))
+           (symbolp (cadr sexp))
+           (memq (car sexp) '(quote function)))))
+
 (defun up-doc--location-tree-at-point ()
   "Produce location tree for the sexp following point.
 The location tree has nodes (location . children) where each location is the
 start of a sexp."
+  (unless (equal major-mode #'emacs-lisp-mode)
+    (warn "Function up-doc--location-tree-at-point requires emacs-lisp-mode to be active"))
   (save-excursion
     (let ((root (point))
           children)
-      (if (atom (sexp-at-point))
+      (if (up-doc--atom-like-p (sexp-at-point))
           (cons root nil)
-        (down-list) ;; must be at the start of sexp
+        (down-list)              ;; must be at the start of sexp
         (ignore-error scan-error ;; note that scan error will break the while loop
-            (while t
-              (forward-sexp) ;; leaves point at end of sexp
-              (backward-sexp)
-              (push (up-doc--location-tree-at-point) children)
-              (forward-sexp)))
+          (while t
+            (forward-sexp) ;; leaves point at end of sexp
+            (backward-sexp)
+            (push (up-doc--location-tree-at-point) children)
+            (forward-sexp)))
         (cons root (nreverse children))))))
 
 (defun up-doc--sexp-diff (old new &optional prefix-stack)
