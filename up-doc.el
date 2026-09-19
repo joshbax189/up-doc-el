@@ -198,21 +198,23 @@ Produce diff as a result of applying source-level changes to match NEW-VERSION."
         (emacs-lisp-mode)
         (insert sexp-text)
         (newline))
-      (diff-buffers "*orig*" "*modified*" "-u" t)
-      (with-current-buffer "*Diff*"
-        (let* ((diff-start (goto-line 2))
-               (diff-end (progn (goto-char (point-max)) (forward-line -2) (point)))
-               (diff-text (buffer-substring diff-start diff-end))
-               ;; this enables diff-apply
-               (diff-text (string-replace "#<buffer *modified*>" source-file diff-text)))
-          (kill-buffer)
-          (kill-buffer "*orig*")
-          (kill-buffer "*modified*")
-          diff-text)))))
+      (save-window-excursion
+       (diff-buffers "*orig*" "*modified*" "-u" t)
+       (with-current-buffer "*Diff*"
+         (let* ((diff-start (goto-line 2))
+                (diff-end (progn (goto-char (point-max)) (forward-line -2) (point)))
+                (diff-text (buffer-substring diff-start diff-end))
+                ;; this enables diff-apply
+                (diff-text (string-replace "#<buffer *modified*>" source-file diff-text)))
+           (kill-buffer)
+           (kill-buffer "*orig*")
+           (kill-buffer "*modified*")
+           diff-text))))))
 
+;; TODO could factor out common parts of this
 (defun up-doc--diff-inline-transform (keyword)
-  "Assume NEW-VERSION is a modification of sexp at point.
-Produce diff as a result of applying source-level changes to match NEW-VERSION."
+  "Delete a pair of brackets either side of the argument to KEYWORD.
+This removes one layer of nesting.  Produce diff."
   (save-excursion
     (let* ((start (point))
            (source-file (file-name-nondirectory (buffer-file-name)))
@@ -255,17 +257,18 @@ Produce diff as a result of applying source-level changes to match NEW-VERSION."
         (emacs-lisp-mode)
         (insert sexp-text)
         (newline))
-      (diff-buffers "*orig*" "*modified*" "-u" t)
-      (with-current-buffer "*Diff*"
-        (let* ((diff-start (goto-line 2))
-               (diff-end (progn (goto-char (point-max)) (forward-line -2) (point)))
-               (diff-text (buffer-substring diff-start diff-end))
-               ;; this enables diff-apply
-               (diff-text (string-replace "#<buffer *modified*>" source-file diff-text)))
-          (kill-buffer)
-          (kill-buffer "*orig*")
-          (kill-buffer "*modified*")
-          diff-text)))))
+      (save-window-excursion
+       (diff-buffers "*orig*" "*modified*" "-u" t)
+       (with-current-buffer "*Diff*"
+         (let* ((diff-start (goto-line 2))
+                (diff-end (progn (goto-char (point-max)) (forward-line -2) (point)))
+                (diff-text (buffer-substring diff-start diff-end))
+                ;; this enables diff-apply
+                (diff-text (string-replace "#<buffer *modified*>" source-file diff-text)))
+           (kill-buffer)
+           (kill-buffer "*orig*")
+           (kill-buffer "*modified*")
+           diff-text))))))
 
 (defun up-doc--form-to-plist (form)
   "Convert a `use-package' FORM to a plist indexed by `use-package-keywords'.
