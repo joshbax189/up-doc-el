@@ -665,13 +665,24 @@ Good example:
   (let ((hooks (plist-get package :hook))
         (bad-hooks nil))
     (dolist (hook hooks)
-      (-when-let* (((hook-sym . fn) hook)
-                   (_ (listp fn))
-                   ((fn-head) fn))
-        (when (eq fn-head 'lambda)
-          (push hook-sym bad-hooks))))
+      (-when-let* (((_ . fn) hook)
+                   (_ (listp fn)))
+        (when (eq (car fn) 'lambda)
+          (push hook bad-hooks))))
     (when bad-hooks
-      (format "hooks for symbols %s should use defuns instead of lambdas" bad-hooks))))
+      (concat (format "hooks for symbols %s should use defuns instead of lambdas" (map-keys bad-hooks))
+              (up-doc--format-diff marker
+                             (lambda (f)
+                               (let ((res f))
+                                (cl-flet ((hook-name-suggest (sym)
+                                            (intern (concat (symbol-name (plist-get package :package)) "--" (symbol-name sym) "-handler"))))
+                                 (dolist (hook-bind bad-hooks)
+                                   (let ((hook-sym (car hook-bind))
+                                         (lambda-form (cdr hook-bind)))
+                                     (setq res (up-doc--delete-form res :hook hook-bind)
+                                           res (up-doc--insert-form res :config `(defun ,(hook-name-suggest hook-sym) ,@(cdr lambda-form)))
+                                           res (up-doc--insert-form res :hook (cons hook-sym (hook-name-suggest hook-sym)))))))
+                                res)))))))
 
 (up-doc-rule hook-warn-double-hook
     "Symbols in :hook argument should not have suffix -hook.
