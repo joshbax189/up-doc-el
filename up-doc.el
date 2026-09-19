@@ -248,7 +248,8 @@ This removes one layer of nesting.  Produce diff."
         ;; delete (
         (delete-char 1)
         ;; indent region -- conservative otherwise indentation can change for whole form
-        (indent-region start-block end-block)
+        (let ((progress-reporter-update-functions nil))
+          (indent-region start-block end-block))
         ;; << end of modification
         (goto-char (point-max))
         (newline))
