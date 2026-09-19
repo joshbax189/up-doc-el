@@ -1040,7 +1040,7 @@ MARKER should be at the start of the FORM."
       (compilation-mode)
       (up-doc-results-mode)
       (setq-local up-doc-origin-buffer origin-buffer)
-      (font-lock-fontify-buffer))))
+      (font-lock-update))))
 
 (require 'compile)
 (add-to-list 'compilation-error-regexp-alist-alist '(up-doc . ("\\([[:word:]]+.el\\):\\([[:digit:]]+\\):" 1 2 nil 1)))
@@ -1243,7 +1243,7 @@ This can be used for example, with `magic-mode-alist':
     (user-error "Could not determine target buffer for linting"))
   (with-current-buffer up-doc-origin-buffer
     (up-doc-lint-buffer))
-  (font-lock-fontify-buffer))
+  (font-lock-update))
 
 (define-minor-mode up-doc-results-mode
   "Minor mode for viewing up-doc reports in compilation buffer."
