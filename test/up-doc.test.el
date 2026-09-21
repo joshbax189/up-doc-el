@@ -609,19 +609,6 @@ _C-n_ext line  _a_ll              _R_efine               _C-z_: undo
     (should (equal (sexp-at-point)
                    '(my . #'foo)))))
 
-(ert-deftest up-doc--delete-keyword/test ()
-  "Tests basic behavior."
-  (should (equal (up-doc--delete-keyword '(use-package blah :bah a) :foo)
-                 '(use-package blah :bah a)))
-  (should (equal (up-doc--delete-keyword '(use-package blah :bah a) :bah)
-                 '(use-package blah)))
-  (should (equal (up-doc--delete-keyword '(use-package blah :bah ((x) (y) (z))) :bah)
-                 '(use-package blah)))
-  (should (equal (up-doc--delete-keyword '(use-package blah :bah ((x) (y) (z)) :foo z) :bah)
-                 '(use-package blah :foo z)))
-  (should (equal (up-doc--delete-keyword '(use-package blah :bah (x) (y) (z) :foo z) :bah)
-                 '(use-package blah :foo z))))
-
 (ert-deftest up-doc--delete-form/test ()
   "Tests basic behavior."
   ;; no match keyword

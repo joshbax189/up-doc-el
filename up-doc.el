@@ -201,6 +201,46 @@ Returns nil if PATH does not exist."
     (setq loc-tree (nth n (cdr loc-tree))))
   (car-safe loc-tree))
 
+(defun up-doc--diff-transform (fn)
+  "Evaluate FN in a fresh buffer with a copy of sexp at point.
+Produce diff of changes relative to original.
+FN should be a function taking no arguments."
+  (save-excursion
+    (let* ((start (point))
+           ;; TODO this fails when buffer is not visiting a file
+           (source-file (file-name-nondirectory (buffer-file-name)))
+           (end (progn
+                  ;; point may be at start or end of sexp
+                  (if (looking-at-p "(") (forward-sexp) (backward-sexp))
+                  (point)))
+           (sexp-text (buffer-substring start end)))
+
+      (with-current-buffer (get-buffer-create "*modified*")
+        (erase-buffer)
+        (emacs-lisp-mode)
+        (insert sexp-text)
+        (goto-char (point-min))
+        (funcall fn)
+        (goto-char (point-max))
+        (newline))
+      (with-current-buffer (get-buffer-create "*orig*")
+        (erase-buffer)
+        (emacs-lisp-mode)
+        (insert sexp-text)
+        (newline))
+      (save-window-excursion
+       (diff-buffers "*orig*" "*modified*" "-u" t)
+       (with-current-buffer "*Diff*"
+         (let* ((diff-start (goto-line 2))
+                (diff-end (progn (goto-char (point-max)) (forward-line -2) (point)))
+                (diff-text (buffer-substring diff-start diff-end))
+                ;; this enables diff-apply
+                (diff-text (string-replace "#<buffer *modified*>" source-file diff-text)))
+           (kill-buffer)
+           (kill-buffer "*orig*")
+           (kill-buffer "*modified*")
+           diff-text))))))
+
 (defun up-doc--apply-sexp-diff (diff &optional loc-tree)
   "Modify the sexp following point with the changes in DIFF.
 DIFF is produced by `up-doc--sexp-diff'.
@@ -239,103 +279,57 @@ LOC-TREE is for the sexp at point."
 (defun up-doc--diff-with-sexp-at-point (new-version)
   "Assume NEW-VERSION is a modification of sexp at point.
 Produce diff as a result of applying source-level changes to match NEW-VERSION."
-  (save-excursion
-    (let* ((sexp (sexp-at-point))
-           (start (point))
-           (source-file (file-name-nondirectory (buffer-file-name)))
-           (end (progn
-                  ;; point may be at start or end of sexp
-                  (if (looking-at-p "(") (forward-sexp) (backward-sexp))
-                  (point)))
-           (sexp-text (buffer-substring start end)))
+  (up-doc--diff-transform
+   (lambda ()
+     (let* ((sexp (sexp-at-point))
+            (tree (up-doc--location-tree-at-point))
+            (changes (up-doc--sexp-diff sexp new-version)))
+       (up-doc--apply-sexp-diff changes tree)))))
 
-      (with-current-buffer (get-buffer-create "*modified*")
-        (erase-buffer)
-        (emacs-lisp-mode)
-        (insert sexp-text)
-        (goto-char (point-min))
-        (let ((tree (up-doc--location-tree-at-point))
-              (changes (up-doc--sexp-diff sexp new-version)))
-          (up-doc--apply-sexp-diff changes tree))
-        (goto-char (point-max))
-        (newline))
-      (with-current-buffer (get-buffer-create "*orig*")
-        (erase-buffer)
-        (emacs-lisp-mode)
-        (insert sexp-text)
-        (newline))
-      (save-window-excursion
-       (diff-buffers "*orig*" "*modified*" "-u" t)
-       (with-current-buffer "*Diff*"
-         (let* ((diff-start (goto-line 2))
-                (diff-end (progn (goto-char (point-max)) (forward-line -2) (point)))
-                (diff-text (buffer-substring diff-start diff-end))
-                ;; this enables diff-apply
-                (diff-text (string-replace "#<buffer *modified*>" source-file diff-text)))
-           (kill-buffer)
-           (kill-buffer "*orig*")
-           (kill-buffer "*modified*")
-           diff-text))))))
-
-;; TODO could factor out common parts of this
 (defun up-doc--diff-inline-transform (keyword)
   "Delete a pair of brackets either side of the argument to KEYWORD.
 This removes one layer of nesting.  Produce diff."
-  (save-excursion
-    (let* ((start (point))
-           (source-file (file-name-nondirectory (buffer-file-name)))
-           (end (progn
-                  ;; point may be at start or end of sexp
-                  (if (looking-at-p "(") (forward-sexp) (backward-sexp))
-                  (point)))
-           (sexp-text (buffer-substring start end))
-           start-block end-block)
+  (up-doc--diff-transform
+   (lambda ()
+     (let (start-block end-block)
+      ;; go to keyword -- leaves point at end of match
+      (search-forward (if (symbolp keyword) (symbol-name keyword) keyword))
+      ;; go to start of next sexp
+      (forward-sexp)
+      (setq end-block (point))
+      (backward-sexp)
+      ;; save point
+      (setq start-block (point))
+      ;; go to end of sexp
+      (forward-sexp)
+      ;; delete )
+      (delete-char -1)
+      ;; back to start
+      (goto-char start-block)
+      ;; delete (
+      (delete-char 1)
+      ;; indent region -- conservative otherwise indentation can change for whole form
+      (let ((progress-reporter-update-functions nil))
+        (indent-region start-block end-block))))))
 
-      (with-current-buffer (get-buffer-create "*modified*")
-        (erase-buffer)
-        (emacs-lisp-mode)
-        (insert sexp-text)
-        (goto-char (point-min))
-        ;; modification goes here >>
-        ;; go to keyword -- leaves point at end of match
-        (search-forward (if (symbolp keyword) (symbol-name keyword) keyword))
-        ;; go to start of next sexp
-        (forward-sexp)
-        (setq end-block (point))
-        (backward-sexp)
-        ;; save point
-        (setq start-block (point))
-        ;; go to end of sexp
-        (forward-sexp)
-        ;; delete )
-        (delete-char -1)
-        ;; back to start
-        (goto-char start-block)
-        ;; delete (
-        (delete-char 1)
-        ;; indent region -- conservative otherwise indentation can change for whole form
-        (let ((progress-reporter-update-functions nil))
-          (indent-region start-block end-block))
-        ;; << end of modification
-        (goto-char (point-max))
-        (newline))
-      (with-current-buffer (get-buffer-create "*orig*")
-        (erase-buffer)
-        (emacs-lisp-mode)
-        (insert sexp-text)
-        (newline))
-      (save-window-excursion
-       (diff-buffers "*orig*" "*modified*" "-u" t)
-       (with-current-buffer "*Diff*"
-         (let* ((diff-start (goto-line 2))
-                (diff-end (progn (goto-char (point-max)) (forward-line -2) (point)))
-                (diff-text (buffer-substring diff-start diff-end))
-                ;; this enables diff-apply
-                (diff-text (string-replace "#<buffer *modified*>" source-file diff-text)))
-           (kill-buffer)
-           (kill-buffer "*orig*")
-           (kill-buffer "*modified*")
-           diff-text))))))
+(defun up-doc--diff-delete-transform (keyword)
+  "Delete all arguments of KEYWORD.
+Produce diff."
+  (up-doc--diff-transform
+   (lambda ()
+     (down-list)
+     (while (not (equal keyword (sexp-at-point)))
+       (forward-sexp))
+     ;; at end of sexp
+     (when (equal keyword (sexp-at-point))
+       ;; kill the keyword
+       (backward-sexp)
+       (kill-sexp)
+       ;; move point to start of next sexp
+       (ignore-error scan-error (forward-sexp) (backward-sexp))
+       (while (not (keywordp (sexp-at-point)))
+         (kill-sexp)
+         (ignore-error scan-error (forward-sexp) (backward-sexp)))))))
 
 (defun up-doc--form-to-plist (form)
   "Convert a `use-package' FORM to a plist indexed by `use-package-keywords'.
@@ -446,19 +440,6 @@ The result of this function will always be a list of forms."
 
 ;;;; Modification of Source-Forms:
 ;; a source form is a non-normalized use-package form, i.e. the result of sexp-at-point
-(defun up-doc--delete-keyword (form keyword)
-  "Delete KEYWORD and contents from `use-package' FORM."
-  (let (res
-        do-remove)
-    (dolist (exp form)
-      (if (equal exp keyword)
-          (setq do-remove t)
-        (if do-remove
-            (when (keywordp exp)
-              (setq do-remove nil)
-              (push exp res))
-          (push exp res))))
-    (nreverse res)))
 
 (defun up-doc--delete-form (parent-form keyword form)
   "Delete FORM from `use-package' PARENT-FORM within KEYWORD block."
@@ -643,7 +624,7 @@ Bad example:
     (when (and (equal use-package-always-ensure form-value)
                (plist-member package :ensure))
       (concat (format ":ensure %s is redundant when use-package-always-ensure is %s." form-value use-package-always-ensure)
-              (when marker (up-doc--format-diff marker (lambda (f) (up-doc--delete-keyword f :ensure))))))))
+              (when marker (concat "\n" (save-excursion (goto-char marker) (up-doc--diff-delete-transform :ensure))))))))
 
 (up-doc-rule demand-redundant-with-global
     "Setting :demand t has no effect if `use-package-always-demand' is also t.
@@ -655,7 +636,7 @@ Bad example:
   (when (and use-package-always-demand
              (plist-get package :demand))
     (concat ":demand t is redundant when use-package-always-demand is non-nil."
-            (when marker (up-doc--format-diff marker (lambda (f) (up-doc--delete-keyword f :demand)))))))
+            (when marker (concat "\n" (save-excursion (goto-char marker) (up-doc--diff-delete-transform :demand)))))))
 
 (up-doc-rule defer-implied-by-others
     "Keyword :defer is implied by many other keywords.
@@ -669,7 +650,7 @@ Bad example
   (when (equal (plist-get package :defer) t)
     (when-let* ((defer-kw (seq-some (lambda (kw) (and (memq kw package) kw)) up-doc-defer-like)))
       (concat (format ":defer t can be removed since %s implies deferred loading" defer-kw)
-              (when marker (up-doc--format-diff marker (lambda (f) (up-doc--delete-keyword f :defer))))))))
+              (when marker (concat "\n" (save-excursion (goto-char marker) (up-doc--diff-delete-transform :defer))))))))
 
 (up-doc-rule inline-nested-forms
     "Arguments to keywords are assumed to be a list of cons cells or forms.
