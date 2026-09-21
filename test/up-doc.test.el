@@ -665,4 +665,14 @@ _C-n_ext line  _a_ll              _R_efine               _C-z_: undo
   (should (equal (up-doc--insert-form '(use-package blah :bah (y) (z)) :bah '(x))
                  '(use-package blah :bah (y) (z) (x)))))
 
+(ert-deftest up-doc--keyword-data-p/test ()
+  "Tests basic behavior."
+  (should (up-doc--keyword-data-p :hook '(foo-mode . (lambda () (message "foo mode!")))))
+  (should-not (up-doc--keyword-data-p :hook '((foo-mode . (lambda () (message "foo mode!"))))))
+  (should (up-doc--keyword-data-p :hook '(foo-mode . my-warn)))
+  (should (up-doc--keyword-data-p :bind '(:map term-mode-map ("M-p" . term-send-up))))
+  (should (up-doc--keyword-data-p :bind '("C-z" . nil)))
+  (should (up-doc--keyword-data-p :bind '(:repeat-map term-mode-map ("M-p" . term-send-up))))
+  (should-not (up-doc--keyword-data-p :bind '((:map term-mode-map ("M-p" . term-send-up))))))
+
 ;;; up-doc.test.el ends here

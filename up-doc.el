@@ -69,6 +69,70 @@ is not an atom, but the printed representation does not allow
            (symbolp (cadr sexp))
            (memq (car sexp) '(quote function)))))
 
+(defun up-doc--keyword-data-p (keyword form)
+  "Return non-nil if FORM is a single entry/atomic for KEYWORD.
+E.g. single arguments for :hook may be a symbol or cons cell, but not a
+list of symbols."
+  ;; TODO should identify x and (quote x) using atom-like-p?
+  ;; TODO -cons-pair-p also rejects (quote (a . b))
+  (pcase keyword
+    ((or :disabled :no-require :defer)
+     (booleanp form))
+    (:ensure
+     (or (booleanp form)
+         (symbolp form)))
+    (:demand
+     (or (numberp form)
+         (booleanp form)))
+    (:load-path
+     (or (symbolp form)
+         (stringp form)
+         (functionp form)))
+    ((or :defines :functions :pin :requires :commands :autoload :after)
+     (symbolp form))
+    ((or :preface :init :config)
+     ;; sexp-like
+     (and (listp form)
+          (symbolp (car form))))
+    ;; these accept only a single sexp
+    ((or :if :when :unless)
+     (listp form))
+    (:vc
+     (plistp form))
+    (:catch
+     (or (booleanp form)
+         (functionp form)))
+    (:custom
+     (and (listp form)
+          (length< form 4)
+          (symbolp (car form))))
+    ;; :custom-face
+    ((or :bind :bind*)
+     (or (-cons-pair-p form)
+         (and (stringp (car-safe form)) (null (cdr form))) ;; may bind to nil
+         (and (listp form)
+              (memq (car form) '(:map :repeat-map)))))
+    ((or :bind-keymap :bind-keymap*)
+     (or (-cons-pair-p form)
+          ;; may bind to nil?
+         (and (stringp (car-safe form)) (null (cdr form)))))
+    ((or :mode :interpreter :magic :magic-fallback)
+     (or (stringp form)
+         (-cons-pair-p form)))
+    (:hook
+     (or (symbolp form)
+         (-cons-pair-p form)
+         ;; a cons pair with a lambda
+         (and (listp form) (symbolp (car form)) (functionp (cdr form)))))
+    (:diminish
+     (or (stringp form)
+         (symbolp form)
+         (-cons-pair-p form)))
+    (:delight
+     (or (stringp form)
+         (symbolp form)
+         (eq 'quote (car-safe form))))))
+
 (defun up-doc--location-tree-at-point ()
   "Produce location tree for the sexp following point.
 The location tree has nodes (location . children) where each location is the
@@ -439,7 +503,7 @@ Note that it does no uniqueness checking."
                   ;; block-forms is always a list
                   (if (length= block-forms 1)
                       ;; when there is a single form it may be a nested list
-                      (if (proper-list-p (car block-forms))
+                      (if (not (up-doc--keyword-data-p keyword (car block-forms)))
                           (list keyword (append (car block-forms) forms))
                         (cons keyword (cons (car block-forms) forms)))
                     ;; otherwise block is a list of forms
