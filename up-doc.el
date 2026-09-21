@@ -846,7 +846,7 @@ Returns a possibly empty list of string warnings."
                             pairs)
                       "\n    ")))))
     ('add-to-list
-     (-let [(_ var _elt) form]
+     (-let [(_ (_ var) _elt) form]
        (list (format "Move top-level form into a use-package form\n  (use-package %s\n    :config\n    %s)"
                      form
                      (or (up-doc--find-owning-package var) "emacs")))))

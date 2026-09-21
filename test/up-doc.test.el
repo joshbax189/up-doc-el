@@ -234,6 +234,10 @@
   (should (up-doc--top-level-suggest '(eval-after-load foo
                                        (foo 123 t ragged)))))
 
+(ert-deftest up-doc--top-level-suggest/test-add-to-list ()
+  "Test matching for `add-to-list' forms."
+  (should (up-doc--top-level-suggest '(add-to-list 'eshell-modules-list 'eshell-prompt))))
+
 (ert-deftest up-doc-lint/test-1 ()
   "Tests linting."
   (should (up-doc-lint '(use-package foo-pkg
