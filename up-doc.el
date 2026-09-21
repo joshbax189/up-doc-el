@@ -223,16 +223,16 @@ LOC-TREE is for the sexp at point."
             (if (equal (sexp-at-point) (cadr new-sexp))
                 (forward-sexp) ;; TODO what if a comment follows this?
               (kill-sexp)
-              (princ (cadr new-sexp) (current-buffer)))
+              (prin1 (cadr new-sexp) (current-buffer)))
             (setq last-sexp (cadr new-sexp))
             ;; remaining members of new-sexp are always added
             (dolist (sexp (cddr new-sexp))
               (if (eq last-sexp '\.) (insert " ") (newline-and-indent))
-              (princ sexp (current-buffer))
+              (prin1 sexp (current-buffer))
               (setq last-sexp sexp)))
            (t
             (kill-sexp)
-            (princ new-sexp (current-buffer)))))))))
+            (prin1 new-sexp (current-buffer)))))))))
 
 (defun up-doc--diff-with-sexp-at-point (new-version)
   "Assume NEW-VERSION is a modification of sexp at point.
