@@ -217,7 +217,9 @@ LOC-TREE is for the sexp at point."
           (goto-char target)
           (cond
            ((eq :removed new-sexp)
-            (kill-sexp))
+            (kill-sexp)
+            ;; cleanup whitespace
+            (while (eq 32 (char-before (point))) (delete-char -1)))
            ((eq :added (car-safe new-sexp))
             ;; first sexp after :added may be equal or different
             (if (equal (sexp-at-point) (cadr new-sexp))
