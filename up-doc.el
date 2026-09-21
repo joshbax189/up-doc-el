@@ -848,13 +848,13 @@ allows recording reasons alongside the assignments."
             (-lambda ((form &as fn-head v exp . rest))
               (when (and (memq fn-head '(setq setq-default set-default setopt))
                          (custom-variable-p v))
-                ;; format is ((keyword . old-form) . (list (var . exp)))
+                ;; format is ((keyword . old-form) . (list (var exp)))
                 (let ((origin (cons place form))
-                      (binds (list (cons v exp))))
+                      (binds (list (list v exp))))
                   ;; for (setq x v y v ...)
                   (when rest
                     (dolist (pair (seq-split rest 2))
-                      (push (cons (car pair) (cadr pair)) binds)))
+                      (push (list (car pair) (cadr pair)) binds)))
                   (push (cons origin (nreverse binds)) custom-forms))))))))
     (when custom-forms
       (push (concat "Instead of setting these variables individually, use :custom"
