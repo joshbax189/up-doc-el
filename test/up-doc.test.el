@@ -662,4 +662,40 @@ _C-n_ext line  _a_ll              _R_efine               _C-z_: undo
   (should (up-doc--keyword-data-p :bind '(:repeat-map term-mode-map ("M-p" . term-send-up))))
   (should-not (up-doc--keyword-data-p :bind '((:map term-mode-map ("M-p" . term-send-up))))))
 
+(ert-deftest up-doc-lint/test/inline-bind ()
+  "Bind should only be reported in specific cases."
+  (with-mock
+    (mock (up-doc--enabled-rule-names *) => '(inline-nested-forms) :times 3)
+    ;; this one should not report due to the use of :map inline
+    (should-not (up-doc-lint '(use-package term
+                                :bind (("C-c t" . term)
+                                       :map term-mode-map
+                                       ("M-p" . term-send-up)
+                                       ("M-n" . term-send-down)
+                                       :map term-raw-map
+                                       ("M-o" . other-window)
+                                       ("M-p" . term-send-up)
+                                       ("M-n" . term-send-down)))))
+    ;; this should report because :map is used in a sub-form
+    (should (up-doc-lint '(use-package term
+                            :bind (("C-c t" . term)
+                                   (:map term-mode-map
+                                         ("M-p" . term-send-up)
+                                         ("M-n" . term-send-down))
+                                   (:map term-raw-map
+                                         ("M-o" . other-window)
+                                         ("M-p" . term-send-up)
+                                         ("M-n" . term-send-down))))))
+    ;; this should not report as it is already formatted
+    (should-not (up-doc-lint '(use-package term
+                                :bind
+                                ("C-c t" . term)
+                                (:map term-mode-map
+                                      ("M-p" . term-send-up)
+                                      ("M-n" . term-send-down))
+                                (:map term-raw-map
+                                      ("M-o" . other-window)
+                                      ("M-p" . term-send-up)
+                                      ("M-n" . term-send-down)))))))
+
 ;;; up-doc.test.el ends here

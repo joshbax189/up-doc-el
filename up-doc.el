@@ -669,14 +669,14 @@ Good example
     (y-hook . fn))
 "
   (let (warnings)
-   (dolist (keyword '(:hook :custom :mode :bind)) ;; TODO any other keywords possible?
+   (dolist (keyword '(:hook :custom :mode :bind :bind*)) ;; TODO any other keywords possible?
     (-when-let* ((forms (plist-get package keyword))
                  (_ (eq 1 (proper-list-p forms))) ;; nil if a dotted cons
                  (inner-list (car forms))
-                 (_ (proper-list-p inner-list))
-                 (_ (not (or (symbolp (car inner-list))
-                             (stringp (car inner-list))))) ;; e.g. ("C-x" . some-fn)
-                 )
+                 (_ (not (up-doc--keyword-data-p keyword inner-list)))
+                 ;; special check for :bind -- does not apply if :map, :repeat-map are at this level
+                 (_ (or (not (memq keyword '(:bind :bind*)))
+                        (not (seq-some #'keywordp inner-list)))))
       (push (concat
              (format "consider inlining contents of %s keyword to reduce nesting" keyword)
              (when marker
