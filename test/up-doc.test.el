@@ -698,4 +698,31 @@ _C-n_ext line  _a_ll              _R_efine               _C-z_: undo
                                       ("M-p" . term-send-up)
                                       ("M-n" . term-send-down)))))))
 
+(ert-deftest up-doc/no-print-slashdot ()
+  "Inserting a cons cell should not produce an escaped dot."
+  (with-temp-buffer
+    (insert "(a b c)")
+    (emacs-lisp-mode)
+    (goto-char (point-min))
+    (up-doc--apply-sexp-diff (up-doc--sexp-diff (sexp-at-point) '(a . b)))
+    (should (equal "(a . b)" (buffer-string))))
+  (with-temp-buffer
+    (insert "(a)")
+    (emacs-lisp-mode)
+    (goto-char (point-min))
+    (up-doc--apply-sexp-diff (up-doc--sexp-diff (sexp-at-point) '((a . b))))
+    (should (equal "((a . b))" (buffer-string))))
+  (with-temp-buffer
+    (insert "(a)")
+    (emacs-lisp-mode)
+    (goto-char (point-min))
+    (up-doc--apply-sexp-diff (up-doc--sexp-diff (sexp-at-point) '(a . b)))
+    (should (equal "(a . b)" (buffer-string))))
+  (with-temp-buffer
+    (insert "(a)")
+    (emacs-lisp-mode)
+    (goto-char (point-min))
+    (up-doc--apply-sexp-diff (up-doc--sexp-diff (sexp-at-point) '(x . y)))
+    (should (equal "(x . y)" (buffer-string)))))
+
 ;;; up-doc.test.el ends here

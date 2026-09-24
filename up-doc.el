@@ -247,34 +247,42 @@ DIFF is produced by `up-doc--sexp-diff'.
 LOC-TREE is for the sexp at point."
   (unless loc-tree (setq loc-tree (up-doc--location-tree-at-point)))
   (save-excursion
-    ;; apply changes in reverse order to preserve locations
-    (dolist (change (sort diff :reverse t))
-      (let* ((path (car change))
-             (new-sexp (cdr change))
-             (target (up-doc--location-tree-elt loc-tree path))
-             last-sexp)
-        (when target
-          (goto-char target)
-          (cond
-           ((eq :removed new-sexp)
-            (kill-sexp)
-            ;; cleanup whitespace
-            (while (eq 32 (char-before (point))) (delete-char -1)))
-           ((eq :added (car-safe new-sexp))
-            ;; first sexp after :added may be equal or different
-            (if (equal (sexp-at-point) (cadr new-sexp))
-                (forward-sexp) ;; TODO what if a comment follows this?
+    ;; princ does not print quotes, prin1 escapes .
+    ;; this is the only place it matters however
+    (cl-flet ((print-clean (obj) (if (eq '\. obj)
+                                     (princ obj (current-buffer))
+                                   (prin1 obj (current-buffer)))))
+      ;; apply changes in reverse order to preserve locations
+      (dolist (change (sort diff :reverse t))
+        (let* ((path (car change))
+               (new-sexp (cdr change))
+               (target (up-doc--location-tree-elt loc-tree path))
+               last-sexp)
+          (when target
+            (goto-char target)
+            (cond
+             ((eq :removed new-sexp)
               (kill-sexp)
-              (prin1 (cadr new-sexp) (current-buffer)))
-            (setq last-sexp (cadr new-sexp))
-            ;; remaining members of new-sexp are always added
-            (dolist (sexp (cddr new-sexp))
-              (if (eq last-sexp '\.) (insert " ") (newline-and-indent))
-              (prin1 sexp (current-buffer))
-              (setq last-sexp sexp)))
-           (t
-            (kill-sexp)
-            (prin1 new-sexp (current-buffer)))))))))
+              ;; cleanup whitespace
+              (while (eq 32 (char-before (point))) (delete-char -1)))
+             ((eq :added (car-safe new-sexp))
+              ;; first sexp after :added may be equal or different
+              (if (equal (sexp-at-point) (cadr new-sexp))
+                  (forward-sexp) ;; TODO what if a comment follows this?
+                (kill-sexp)
+                (print-clean (cadr new-sexp)))
+              (setq last-sexp (cadr new-sexp))
+              ;; remaining members of new-sexp are always added
+              (dolist (sexp (cddr new-sexp))
+                (if (or (eq last-sexp '\.)
+                        (not (char-before ?\))))
+                    (insert " ")
+                  (newline-and-indent))
+                (print-clean sexp)
+                (setq last-sexp sexp)))
+             (t
+              (kill-sexp)
+              (print-clean new-sexp)))))))))
 
 (defun up-doc--diff-with-sexp-at-point (new-version)
   "Assume NEW-VERSION is a modification of sexp at point.
