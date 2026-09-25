@@ -109,7 +109,7 @@ list of symbols."
     ;; :custom-face
     ((or :bind :bind*)
      (or (-cons-pair-p form)
-         (and (stringp (car-safe form)) (null (cdr form))) ;; may bind to nil
+         (and (stringp (car-safe form)) (up-doc--atom-like-p (cdr form))) ;; may bind to nil or (quote foo)
          (and (listp form)
               (memq (car form) '(:map :repeat-map)))))
     ((or :bind-keymap :bind-keymap*)

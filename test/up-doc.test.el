@@ -377,11 +377,12 @@ _C-n_ext line  _a_ll              _R_efine               _C-z_: undo
   "Tests inline-nested-forms for :bind keyword."
   (let ((res (up-doc-lint '(use-package expand-region
                              :bind
+                             ;; when quoted is (string quote symbol)
                              ("C-x C-o" . 'er/expand-region)
                              :custom
                              ;; default to expand is o, i is right beside it
                              (expand-region-contract-fast-key "i")))))
-   (should-not (seq-some (lambda (x) (string-match-p "rule:inline-nested-forms" x)) res))))
+    (should-not (seq-some (lambda (x) (string-match-p "rule:inline-nested-forms" x)) res))))
 
 (ert-deftest up-doc-lint/test-custom ()
   "Tests custom var warning."
@@ -659,6 +660,7 @@ _C-n_ext line  _a_ll              _R_efine               _C-z_: undo
   (should (up-doc--keyword-data-p :hook '(foo-mode . my-warn)))
   (should (up-doc--keyword-data-p :bind '(:map term-mode-map ("M-p" . term-send-up))))
   (should (up-doc--keyword-data-p :bind '("C-z" . nil)))
+  (should (up-doc--keyword-data-p :bind '("C-z" . 'foo)))
   (should (up-doc--keyword-data-p :bind '(:repeat-map term-mode-map ("M-p" . term-send-up))))
   (should-not (up-doc--keyword-data-p :bind '((:map term-mode-map ("M-p" . term-send-up))))))
 
