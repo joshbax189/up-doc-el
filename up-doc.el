@@ -328,16 +328,30 @@ Produce diff."
      (down-list)
      (while (not (equal keyword (sexp-at-point)))
        (forward-sexp))
-     ;; at end of sexp
-     (when (equal keyword (sexp-at-point))
-       ;; kill the keyword
-       (backward-sexp)
-       (kill-sexp)
-       ;; move point to start of next sexp
-       (ignore-error scan-error (forward-sexp) (backward-sexp))
-       (while (not (keywordp (sexp-at-point)))
-         (kill-sexp)
-         (ignore-error scan-error (forward-sexp) (backward-sexp)))))))
+     (let (begin end)
+      ;; at end of sexp
+      (when (equal keyword (sexp-at-point))
+        (backward-sexp)
+        (setq begin (point))
+        (forward-sexp)
+        ;; move point to start of next sexp
+        (ignore-error scan-error (forward-sexp) (backward-sexp))
+        (condition-case nil
+            (while (not (keywordp (sexp-at-point)))
+              (forward-sexp)
+              ;; move to start of next sexp - scan-error will break from loop
+              ;; note (forward-sexp 2) will leave point at the start of the current sexp
+              (forward-sexp)
+              (backward-sexp))
+          (scan-error))
+        (setq end (point))
+        (delete-region begin end)
+        ;; clean up any whitespace when at end of sexp
+        (when (eq ?\) (char-after))
+          (setq end (point))
+          (backward-sexp)
+          (forward-sexp)
+          (delete-region (point) end)))))))
 
 (defun up-doc--form-to-plist (form)
   "Convert a `use-package' FORM to a plist indexed by `use-package-keywords'.

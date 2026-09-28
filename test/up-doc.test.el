@@ -699,6 +699,50 @@ _C-n_ext line  _a_ll              _R_efine               _C-z_: undo
                                       ("M-p" . term-send-up)
                                       ("M-n" . term-send-down)))))))
 
+(ert-deftest up-doc--diff-delete-transform/last-keyword ()
+  "Should be able to delete last keyword."
+  (with-temp-buffer
+      (emacs-lisp-mode)
+      (insert "(use-package term :ensure nil)")
+      (goto-char (point-min))
+      ;; should work without errors
+      (with-mock
+        (stub file-name-nondirectory => "foo.el")
+        (up-doc--diff-delete-transform :ensure))))
+
+(ert-deftest up-doc--diff-delete-transform/whitespace ()
+  "Should clean trailing whitespace."
+  ;; single line
+  (with-temp-buffer
+    (emacs-lisp-mode)
+    (insert "(use-package term :ensure nil)")
+    (goto-char (point-min))
+    (with-mock
+      (stub file-name-nondirectory => "foo.el")
+      (should (string-suffix-p
+               "+(use-package term)\n"
+               (up-doc--diff-delete-transform :ensure)))))
+  ;; split line, last in sexp
+  (with-temp-buffer
+    (emacs-lisp-mode)
+    (insert "(use-package term\n    :ensure nil)")
+    (goto-char (point-min))
+    (with-mock
+      (stub file-name-nondirectory => "foo.el")
+      (should (string-suffix-p
+               "+(use-package term)\n"
+               (up-doc--diff-delete-transform :ensure)))))
+  ;; single line, not last
+  (with-temp-buffer
+    (emacs-lisp-mode)
+    (insert "(use-package term :ensure nil :defer t)")
+    (goto-char (point-min))
+    (with-mock
+      (stub file-name-nondirectory => "foo.el")
+      (should (string-suffix-p
+               "+(use-package term :defer t)\n"
+               (up-doc--diff-delete-transform :ensure))))))
+
 (ert-deftest up-doc/no-print-slashdot ()
   "Inserting a cons cell should not produce an escaped dot."
   (with-temp-buffer
