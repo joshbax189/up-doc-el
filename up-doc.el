@@ -494,7 +494,8 @@ Note that it does no uniqueness checking."
                   ;; block-forms is always a list
                   (if (length= block-forms 1)
                       ;; when there is a single form it may be a nested list
-                      (if (not (up-doc--keyword-data-p keyword (car block-forms)))
+                      (if (and (not (up-doc--keyword-data-p keyword (car block-forms)))
+                               (proper-list-p (car block-forms)))
                           (list keyword (append (car block-forms) forms))
                         (cons keyword (cons (car block-forms) forms)))
                     ;; otherwise block is a list of forms

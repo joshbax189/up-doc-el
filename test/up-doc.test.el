@@ -636,12 +636,9 @@ _C-n_ext line  _a_ll              _R_efine               _C-z_: undo
   ;; no match keyword
   (should (equal (up-doc--insert-form '(use-package blah :bah a) :foo '(foo))
                  '(use-package blah :bah a :foo (foo))))
-  (should (equal (up-doc--insert-form '(use-package blah :bah a) :bah 'b)
-                 '(use-package blah :bah a b)))
+  ;; append to a list
   (should (equal (up-doc--insert-form '(use-package blah :bah (x y z)) :bah 'b)
                  '(use-package blah :bah (x y z b))))
-  (should (equal (up-doc--insert-form '(use-package blah :bah (n . 1)) :bah 'b)
-                 '(use-package blah :bah (n . 1) b)))
   (should (equal (up-doc--insert-form '(use-package blah :bah ((n . 1) (m . 2))) :bah '(o . 3))
                  '(use-package blah :bah ((n . 1) (m . 2) (o . 3)))))
   (should (equal (up-doc--insert-form '(use-package blah :bah (n . 1) (m . 2)) :bah '(o . 3))
@@ -652,6 +649,15 @@ _C-n_ext line  _a_ll              _R_efine               _C-z_: undo
   ;; flat list
   (should (equal (up-doc--insert-form '(use-package blah :bah (y) (z)) :bah '(x))
                  '(use-package blah :bah (y) (z) (x)))))
+
+(ert-deftest up-doc--insert-form/test-2 ()
+  "Some problematic cases."
+  ;; appending symbol to an existing key
+  (should (equal (up-doc--insert-form '(use-package blah :bah a) :bah 'b)
+                 '(use-package blah :bah a b)))
+  ;; appending a value of a different type
+  (should (equal (up-doc--insert-form '(use-package blah :bah (n . 1)) :bah 'b)
+                 '(use-package blah :bah (n . 1) b))))
 
 (ert-deftest up-doc--keyword-data-p/test ()
   "Tests basic behavior."
