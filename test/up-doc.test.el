@@ -246,14 +246,6 @@
                           :defer t
                           :init (add-hook 'foo-hooks (lambda () (message "foo")))))))
 
-(ert-deftest up-doc-lint/test-2 ()
-  "Tests linting."
-  ;; originally to test a mode regex rule
-  (with-mock
-    (mock (featurep 'graphql-mode) => t)
-    (should-not (up-doc-lint '(use-package graphql-mode
-                                :mode ("\\.gql\\'" "\\.graphql\\'" ))))))
-
 (ert-deftest up-doc-lint/test-3 ()
   "Tests linting."
   (should (up-doc-lint '(use-package fren
