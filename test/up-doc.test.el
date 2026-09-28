@@ -662,10 +662,11 @@ _C-n_ext line  _a_ll              _R_efine               _C-z_: undo
   (should (up-doc--keyword-data-p :bind '(:repeat-map term-mode-map ("M-p" . term-send-up))))
   (should-not (up-doc--keyword-data-p :bind '((:map term-mode-map ("M-p" . term-send-up))))))
 
-(ert-deftest up-doc-lint/test/inline-bind ()
+(ert-deftest up-doc-lint/inline-bind-negative-cases ()
   "Bind should only be reported in specific cases."
   (with-mock
     (mock (up-doc--enabled-rule-names *) => '(inline-nested-forms) :times 3)
+    (mock (featurep 'term) => t :times 3)
     ;; this one should not report due to the use of :map inline
     (should-not (up-doc-lint '(use-package term
                                 :bind (("C-c t" . term)
